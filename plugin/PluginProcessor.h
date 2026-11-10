@@ -3,11 +3,12 @@
 #include "steammaster/Mastering.hpp"
 #include <memory>
 #include <array>
+#include <atomic>
 
 class SteamMasterProcessor final : public juce::AudioProcessor {
 public:
     SteamMasterProcessor();
-    const juce::String getName() const override {return "SteamMaster Test Bench";}
+    const juce::String getName() const override {return "SteamMaster EZ";}
     void prepareToPlay(double sampleRate,int samplesPerBlock) override;
     void releaseResources() override {}
     void processBlock(juce::AudioBuffer<float>&,juce::MidiBuffer&) override;
@@ -27,6 +28,9 @@ public:
     void setStateInformation(const void*,int) override;
     juce::AudioProcessorValueTreeState state;
     std::unique_ptr<steammaster::MasteringRack> rack;
+    // Read-only UI telemetry. These atomics never affect the audio algorithm.
+    std::atomic<float> inputPeakL{0.f}, inputPeakR{0.f};
+    std::atomic<float> outputPeakL{0.f}, outputPeakR{0.f};
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
     std::array<juce::AudioProcessorParameter*,107> monitored_{};

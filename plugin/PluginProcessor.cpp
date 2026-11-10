@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <cmath>
+#include <algorithm>
 
 juce::AudioProcessorValueTreeState::ParameterLayout SteamMasterProcessor::makeLayout(){
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -120,13 +121,32 @@ SteamMasterProcessor::SteamMasterProcessor():juce::AudioProcessor(juce::AudioPro
 }
 bool SteamMasterProcessor::isBusesLayoutSupported(const BusesLayout& l) const {return l.getMainInputChannelSet()==juce::AudioChannelSet::stereo() && l.getMainOutputChannelSet()==juce::AudioChannelSet::stereo();}
 void SteamMasterProcessor::prepareToPlay(double fs,int){rack->prepare(fs);snapshotValid_=false;updateDSP();setLatencySamples(int(rack->latencySamples()));}
-void SteamMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer,juce::MidiBuffer&){
+void SteamMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+{
     juce::ScopedNoDenormals noDenormals;
-    if(buffer.getNumChannels()<2)return;
+    if (buffer.getNumChannels() < 2) return;
     updateDSP();
-    auto* left=buffer.getWritePointer(0);auto* right=buffer.getWritePointer(1);
-    for(int i=0;i<buffer.getNumSamples();++i){const auto y=rack->process({double(left[i]),double(right[i])});left[i]=float(y.l);right[i]=float(y.r);}
-    for(int c=2;c<buffer.getNumChannels();++c)buffer.clear(c,0,buffer.getNumSamples());
+    auto* left = buffer.getWritePointer(0);
+    auto* right = buffer.getWritePointer(1);
+    float inputL = 0.f, inputR = 0.f, outputL = 0.f, outputR = 0.f;
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        const float xL = left[i], xR = right[i];
+        inputL = std::max(inputL, std::abs(xL));
+        inputR = std::max(inputR, std::abs(xR));
+        // The original SteamMaster DSP path remains unchanged.
+        const auto y = rack->process({double(xL), double(xR)});
+        left[i] = float(y.l);
+        right[i] = float(y.r);
+        outputL = std::max(outputL, std::abs(left[i]));
+        outputR = std::max(outputR, std::abs(right[i]));
+    }
+    inputPeakL.store(inputL, std::memory_order_relaxed);
+    inputPeakR.store(inputR, std::memory_order_relaxed);
+    outputPeakL.store(outputL, std::memory_order_relaxed);
+    outputPeakR.store(outputR, std::memory_order_relaxed);
+    for (int c = 2; c < buffer.getNumChannels(); ++c)
+        buffer.clear(c, 0, buffer.getNumSamples());
 }
 juce::AudioProcessorEditor* SteamMasterProcessor::createEditor(){return new SteamMasterEditor(*this);}
 void SteamMasterProcessor::getStateInformation(juce::MemoryBlock& dest){if(auto xml=state.copyState().createXml())copyXmlToBinary(*xml,dest);}

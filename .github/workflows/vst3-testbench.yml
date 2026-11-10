@@ -1,27 +1,28 @@
-name: Windows VST3 Test Bench
+name: SteamMaster EZ Windows VST3
 on:
   push:
-    branches: [main, 'vst3/**']
+    branches: ['ez/**', 'main']
   workflow_dispatch:
+
 jobs:
-  build-vst3:
+  build-ez:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure JUCE VST3
-        run: cmake -S . -B build-vst3 -DSTEAMMASTER_BUILD_VST3=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
-      - name: Build VST3
-        run: cmake --build build-vst3 --config Release --target SteamMasterVST3_VST3 steammaster_plugin_host_smoke --parallel 2
-      - name: Run DSP and plugin-host tests
-        run: ctest --test-dir build-vst3 -C Release -R SteamMasterPluginHostSmoke --output-on-failure
-      - name: Package VST3
+      - name: Configure JUCE and DSP tests
+        run: cmake -S . -B build-ez -DSTEAMMASTER_BUILD_VST3=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build SteamMaster EZ and plugin host test
+        run: cmake --build build-ez --config Release --target SteamMasterEZ_VST3 steammaster_plugin_host_smoke --parallel 2
+      - name: Run JUCE plugin smoke test
+        run: ctest --test-dir build-ez -C Release -R SteamMasterPluginHostSmoke --output-on-failure
+      - name: Package SteamMaster EZ
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem build-vst3 -Recurse -Directory -Filter 'SteamMaster Test Bench.vst3' | Select-Object -First 1
-          if (-not $plugin) { throw 'VST3 bundle missing' }
-          Compress-Archive -Path $plugin.FullName -DestinationPath SteamMaster-TestBench-Windows-VST3.zip
+          $plugin = Get-ChildItem build-ez -Recurse -Directory -Filter 'SteamMaster EZ.vst3' | Select-Object -First 1
+          if (-not $plugin) { throw 'SteamMaster EZ.vst3 missing' }
+          Compress-Archive -Path $plugin.FullName -DestinationPath SteamMaster-EZ-Windows-VST3.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: SteamMaster-TestBench-Windows-VST3
-          path: SteamMaster-TestBench-Windows-VST3.zip
+          name: SteamMaster-EZ-Windows-VST3
+          path: SteamMaster-EZ-Windows-VST3.zip
           if-no-files-found: error

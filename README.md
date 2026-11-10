@@ -1,3 +1,27 @@
+# SteamMaster EZ — Digital JUCE Mastering Suite
+
+This is an **independent** edition of SteamMaster. It uses the **v1.7-performance-character DSP engine** and a full native JUCE editor; the original SteamMaster repository is not modified.
+
+- **10 continuously stacked modules**, in signal-chain order: Master Control; Ocean/Furnace; Parametric EQ; Pultec EQ; Shadow Compressor; Exciter; Baxandall M/S; Tape; Stereo Image; Limiter.
+- **Every existing APVTS parameter** is mapped to a live JUCE knob, selector or bypass button. No graphical overlays, empty image sockets, or separate image assets.
+- **Resizable** dark graphite interface with copper and aqua accents, custom rotary controls and input/output peak meters.
+- Independent **VST3 identity**: `com.thomc.steammaster.ez`, product **SteamMaster EZ**, code **SmE1**. It can coexist with the original version.
+- The underlying DSP, processing order and parameter IDs are preserved. Meter readings are passive, read-only telemetry.
+
+## Windows VST3 build
+
+On the `ez/juce-digital-ui` branch, GitHub Actions builds `SteamMasterEZ_VST3`, runs the plugin-host smoke test, and publishes the **SteamMaster-EZ-Windows-VST3** artifact. The editor has not been verified visually inside Cubase until the artifact is installed and tested.
+
+Local build:
+
+```sh
+cmake -S . -B build-ez -DSTEAMMASTER_BUILD_VST3=ON -DBUILD_TESTING=ON
+cmake --build build-ez --config Release --target SteamMasterEZ_VST3
+ctest --test-dir build-ez -C Release -R SteamMasterPluginHostSmoke --output-on-failure
+```
+
+---
+
 # SteamMaster DSP v1.5 — Stereo Image + Master Limiter refinement
 
 **DSP only — no GUI or VST3 integration.** Stereo Image now uses a smoother complementary upper-band crossover and Mono Maker-before-widening routing, with read-only stereo correlation telemetry. Master Limiter now has a gain-reduction-driven dual-memory AUTO release, genuinely distinct Clean/Punch/Modern recovery, and gain-reduction telemetry aligned with the delayed output audio. The controls and fixed mastering-rack latency are unchanged. The 12 DSP test suites pass both Release and sanitizers locally.
