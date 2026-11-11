@@ -219,7 +219,7 @@ void Ocean::set(const OceanParameters& p) noexcept {
     p_.attackMs=clamp(p.attackMs,25.,70.);
     p_.thresholdDb=clamp(p.thresholdDb,-60.,12.);
     sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);
-    goldMix_.set(p.goldMode?1.:0.);setCommon(p.common);
+    setCommon(p.common);
 }
 void Ocean::reset() noexcept {
     envelope_=reductionDb_=0.;sc_.reset();tube_.reset();tube_.setMode(quality_);
@@ -321,7 +321,9 @@ void Furnace::prepare(double fs) noexcept {
 }
 void Furnace::set(const FurnaceParameters& p) noexcept {
     p_=p;p_.thresholdDb=clamp(p.thresholdDb,-36.,15.);
-    sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);setCommon(p.common);
+    sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);
+    goldMix_.set(p.goldMode?1.:0.);
+    setCommon(p.common);
 }
 void Furnace::reset() noexcept {
     envelope_=reductionDb_=autoFast_=autoSlow_=0.;
