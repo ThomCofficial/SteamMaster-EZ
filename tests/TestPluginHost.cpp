@@ -104,6 +104,11 @@ int main(){
     p->prepareToPlay(fs,512);
     if(p->getLatencySamples()<=0)throw std::runtime_error("latency not reported");
     if(!p->hasEditor())throw std::runtime_error("missing editor");
+    if(p->getName()!="SteamMaster EZ")
+        throw std::runtime_error("GSSL replacement must retain the original plugin name");
+    if(auto* gold=p->state.getRawParameterValue("furnace_gold");
+       gold==nullptr || gold->load()!=0.f)
+        throw std::runtime_error("GOLD VCA must default off for existing projects");
     {
       std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
       if(!editor || editor->getWidth()<300)throw std::runtime_error("editor invalid");

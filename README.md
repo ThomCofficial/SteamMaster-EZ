@@ -1,10 +1,21 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
-## Experimental GSSL Gold Furnace (separate plugin identity)
+## GSSL Gold Furnace — Original SteamMaster EZ identity
 
-This **GSSL Lab** build is intentionally on \`experiment/furnace-gssl-measured\`.
-It has its own VST3 identity and name (\`SteamMaster EZ GSSL Lab\`), so it cannot replace
-the known-good SteamMaster EZ plugin inside a Cubase project.
+This GSSL edition uses the **original SteamMaster EZ VST3 identity**:
+`com.thomc.steammaster.ez` / manufacturer `ThmC` / plugin code `SmE1`.
+The plugin name and folder are `SteamMaster EZ`.
+
+The standalone GSSL Lab identity remains preserved at
+`backup/gssl-lab-separate-plugin-identity`. The original EZ DSP remains
+preserved on `ez/juce-digital-ui`.
+
+**Cubase replacement:** Back up important projects first, remove the previous
+`SteamMaster EZ.vst3` folder, install the new one in the same VST3 location,
+and restart/rescan Cubase. Existing projects should identify the replacement
+by the same plugin ID, but verify preset and automation restoration in a copy
+of a project. The extra `furnace_gold` parameter stays OFF by default for
+legacy-project compatibility; enable GOLD VCA to hear the new GSSL voicing.
 
 - \`Furnace / GOLD VCA\` defaults **OFF**, preserving the existing DSP output.
 - When ON, Furnace uses an original level-dependent compression-curve design
