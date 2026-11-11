@@ -33,8 +33,8 @@ public:
     std::atomic<float> outputPeakL{0.f}, outputPeakR{0.f};
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
-    std::array<juce::AudioProcessorParameter*,107> monitored_{};
-    std::array<float,107> previous_{};
+    std::array<juce::AudioProcessorParameter*,108> monitored_{};
+    std::array<float,108> previous_{};
     bool snapshotValid_=false;
     float v(const char* id) const noexcept {auto* p=state.getRawParameterValue(id);return p?p->load(std::memory_order_relaxed):0.f;}
     void updateDSP() noexcept;

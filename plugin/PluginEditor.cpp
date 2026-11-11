@@ -80,8 +80,8 @@ public:
         g.fillRoundedRectangle(area, 7.f);
         g.setColour(enabled ? aqua : juce::Colour(0xff586b78));
         g.drawRoundedRectangle(area.reduced(0.5f), 7.f, 1.2f);
-        g.setFont(juce::Font(juce::FontOptions(11.5f)));
-        g.drawFittedText(enabled ? "ACTIVE" : "BYPASS", area.toNearestInt(),
+        g.setFont(juce::Font(juce::FontOptions(9.2f)));
+        g.drawFittedText(enabled ? "ON" : "OFF", area.toNearestInt(),
                          juce::Justification::centred, 1);
     }
 
@@ -93,7 +93,7 @@ public:
         g.fillRoundedRectangle(rect.reduced(0.5f), 6.f);
         g.setColour(juce::Colour(0xff46616e));
         g.drawRoundedRectangle(rect.reduced(0.7f), 6.f, 1.f);
-        const float x = width - 16.f, y = height * 0.5f;
+        const float x = width - 11.f, y = height * 0.5f;
         juce::Path arrow;
         arrow.startNewSubPath(x - 4.f, y - 2.f);
         arrow.lineTo(x + 4.f, y - 2.f);
@@ -105,8 +105,8 @@ public:
 
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
     {
-        label.setBounds(9, 1, box.getWidth() - 33, box.getHeight() - 2);
-        label.setFont(juce::Font(juce::FontOptions(12.f)));
+        label.setBounds(5, 1, box.getWidth() - 19, box.getHeight() - 2);
+        label.setFont(juce::Font(juce::FontOptions(10.f)));
     }
 };
 
@@ -118,7 +118,7 @@ public:
     {
         const auto name = parameter.getName(256).fromFirstOccurrenceOf(" / ", false, false);
         title.setText(name.toUpperCase(), juce::dontSendNotification);
-        title.setFont(juce::Font(juce::FontOptions(10.5f)));
+        title.setFont(juce::Font(juce::FontOptions(9.5f)));
         title.setJustificationType(juce::Justification::centred);
         title.setColour(juce::Label::textColourId, secondaryText);
         title.setInterceptsMouseClicks(false, false);
@@ -147,7 +147,7 @@ public:
         {
             knob = std::make_unique<juce::Slider>();
             knob->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-            knob->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 100, 22);
+            knob->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 62, 16);
             knob->setScrollWheelEnabled(true);
             knob->setTooltip(id);
             if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(&parameter))
@@ -172,10 +172,10 @@ public:
     {
         const int w = getWidth();
         const int h = getHeight();
-        title.setBounds(5, 7, w - 10, 19);
-        if (knob) knob->setBounds(7, 26, w - 14, h - 31);
-        if (combo) combo->setBounds(9, 54, w - 18, 30);
-        if (toggle) toggle->setBounds(12, 52, w - 24, 32);
+        title.setBounds(2, 3, w - 4, 13);
+        if (knob) knob->setBounds(3, 13, w - 6, h - 16);
+        if (combo) combo->setBounds(4, 20, w - 8, 25);
+        if (toggle) toggle->setBounds(4, 18, w - 8, 27);
     }
 
 private:
@@ -190,118 +190,114 @@ private:
 };
 } // namespace
 
+
+// Each control has one permanent coordinate on this rack. The panel never
+// changes its column count or rearranges knobs based on window width.
 class SteamMasterEditor::ModulePanel final : public juce::Component
 {
 public:
-    struct Group
-    {
-        juce::String section;
-        std::vector<std::unique_ptr<ParameterCell>> controls;
-    };
-
-    ModulePanel(juce::AudioProcessor& p, juce::AudioProcessorValueTreeState& state,
+    ModulePanel(juce::AudioProcessor& processor,
+                juce::AudioProcessorValueTreeState& state,
                 const juce::String& name, const juce::String& subtitle,
                 std::initializer_list<const char*> sections, int number)
         : title(name), description(subtitle), index(number)
     {
-        for (const char* section : sections)
+        for (const auto* section : sections)
         {
-            Group group;
-            group.section = section;
-            for (auto* parameter : p.getParameters())
+            const int firstIndex = int(controls.size());
+            for (auto* parameter : processor.getParameters())
             {
                 auto* identified = dynamic_cast<juce::AudioProcessorParameterWithID*>(parameter);
                 if (identified == nullptr ||
-                    !identified->getName(256).startsWith(group.section + " / "))
+                    !identified->getName(256).startsWith(juce::String(section) + " / "))
                     continue;
+
                 auto cell = std::make_unique<ParameterCell>(state, *identified);
                 addAndMakeVisible(*cell);
-                group.controls.push_back(std::move(cell));
+                controls.push_back(std::move(cell));
             }
-            groups.push_back(std::move(group));
+            if (firstIndex != int(controls.size()))
+                groups.emplace_back(juce::String(section), firstIndex);
         }
+        jassert(!controls.empty());
     }
 
-    int requiredHeight(int width) const
+    int requiredHeight() const noexcept
     {
-        const auto columns = columnsForWidth(width);
-        int y = 71;
-        for (const auto& group : groups)
-        {
-            if (groups.size() > 1) y += 26;
-            y += int((group.controls.size() + size_t(columns) - 1) / size_t(columns)) * cellHeight;
-            y += 12;
-        }
-        return y + 3;
+        const int rows = (int(controls.size()) + columns - 1) / columns;
+        return topMargin + rows * cellHeight + bottomMargin;
     }
 
     void paint(juce::Graphics& g) override
     {
-        const auto area = getLocalBounds().toFloat().reduced(2.f);
-        g.setGradientFill(juce::ColourGradient(panelLight, area.getX(), area.getY(),
-                                               panelDark, area.getRight(), area.getBottom(), false));
-        g.fillRoundedRectangle(area, 11.f);
+        auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+        g.setGradientFill(juce::ColourGradient(panelLight, 0.f, 0.f,
+                                               panelDark, float(getWidth()), float(getHeight()),
+                                               false));
+        g.fillRoundedRectangle(bounds, 8.f);
         g.setColour(juce::Colour(0xff344554));
-        g.drawRoundedRectangle(area, 11.f, 1.f);
+        g.drawRoundedRectangle(bounds, 8.f, 0.8f);
 
+        // Slim hardware-style sidebar, with the rack identity preserved.
         g.setColour(index % 2 == 0 ? copper : aqua);
-        g.fillRoundedRectangle(juce::Rectangle<float>(15.f, 18.f, 3.f, 31.f), 1.f);
-        g.setColour(juce::Colour(0xffeef3f4));
-        g.setFont(juce::Font(juce::FontOptions(20.f)));
-        g.drawFittedText(title, 27, 13, getWidth() - 125, 28,
+        g.fillRoundedRectangle(juce::Rectangle<float>(9.f, 13.f, 3.f,
+                                float(getHeight() - 26)), 1.5f);
+        g.setColour(juce::Colour(0xffedf2f3));
+        g.setFont(juce::Font(juce::FontOptions(17.f)));
+        g.drawFittedText(title, 18, 10, 172, 25,
                          juce::Justification::centredLeft, 1);
         g.setColour(secondaryText);
         g.setFont(juce::Font(juce::FontOptions(10.5f)));
-        g.drawFittedText(description.toUpperCase(), 28, 40, getWidth() - 115, 19,
-                         juce::Justification::centredLeft, 1);
-        g.setColour(copper.withAlpha(0.75f));
-        g.setFont(juce::Font(juce::FontOptions(12.f)));
-        g.drawText(juce::String(index).paddedLeft('0', 2), getWidth() - 60, 20, 34, 22,
+        g.drawFittedText(description.toUpperCase(), 18, 36, 171, 27,
+                         juce::Justification::topLeft, 2);
+        g.setColour(copper.withAlpha(0.6f));
+        g.setFont(juce::Font(juce::FontOptions(10.f)));
+        g.drawText(juce::String(index).paddedLeft('0', 2), 154, 8, 28, 16,
                    juce::Justification::centredRight);
 
-        if (groups.size() > 1)
+        g.setColour(juce::Colour(0xff3b4c5b));
+        g.drawLine(float(controlLeft - 8), 8.f,
+                   float(controlLeft - 8), float(getHeight() - 8), 1.f);
+
+        // Visually group Ocean/Furnace and Mid/Side without moving controls.
+        for (size_t i = 1; i < groups.size(); ++i)
         {
-            int y = 71;
-            for (const auto& group : groups)
+            const int firstIndex = groups[i].second;
+            const int col = firstIndex % columns;
+            if (col != 0)
             {
-                g.setColour(secondaryText);
-                g.setFont(juce::Font(juce::FontOptions(11.5f)));
-                g.drawText(group.section.toUpperCase(), 27, y, getWidth() - 54, 19,
-                           juce::Justification::centredLeft);
-                y += 26;
-                const auto columns = columnsForWidth(getWidth());
-                y += int((group.controls.size() + size_t(columns) - 1) / size_t(columns)) * cellHeight;
-                y += 12;
+                const float x = float(controlLeft + col * cellWidth - 2);
+                const float y = float(topMargin + (firstIndex / columns) * cellHeight);
+                g.setColour(copper.withAlpha(0.55f));
+                g.drawLine(x, y + 5.f, x, y + cellHeight - 8.f, 1.5f);
             }
         }
     }
 
     void resized() override
     {
-        const int cols = columnsForWidth(getWidth());
-        const int cellW = (getWidth() - 42) / cols;
-        int y = 71;
-        for (auto& group : groups)
+        // Geometry defined in a fixed 1440-unit space, never by current width.
+        for (int i = 0; i < int(controls.size()); ++i)
         {
-            if (groups.size() > 1) y += 26;
-            for (int i = 0; i < int(group.controls.size()); ++i)
-            {
-                const int x = 21 + (i % cols) * cellW;
-                const int rowY = y + (i / cols) * cellHeight;
-                group.controls[size_t(i)]->setBounds(x, rowY, cellW - 5, cellHeight - 5);
-            }
-            y += int((group.controls.size() + size_t(cols) - 1) / size_t(cols)) * cellHeight;
-            y += 12;
+            const int x = controlLeft + (i % columns) * cellWidth;
+            const int y = topMargin + (i / columns) * cellHeight;
+            controls[size_t(i)]->setBounds(x, y, cellWidth - 4, cellHeight - 2);
         }
     }
 
 private:
-    static constexpr int cellHeight = 123;
-    int columnsForWidth(int width) const { return juce::jlimit(3, 8, (width - 42) / 146); }
+    static constexpr int columns = 18;
+    static constexpr int cellWidth = 68;
+    static constexpr int cellHeight = 61;
+    static constexpr int controlLeft = 208;
+    static constexpr int topMargin = 9;
+    static constexpr int bottomMargin = 8;
+
     juce::String title;
     juce::String description;
     int index = 0;
-    std::vector<Group> groups;
+    std::vector<std::unique_ptr<ParameterCell>> controls;
+    std::vector<std::pair<juce::String, int>> groups;
 };
 
 SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
@@ -310,10 +306,7 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
 {
     setLookAndFeel(skin.get());
     setOpaque(true);
-    viewport.setViewedComponent(&rackCanvas, false);
-    viewport.setScrollBarsShown(true, false);
-    viewport.setScrollBarThickness(7);
-    addAndMakeVisible(viewport);
+    addAndMakeVisible(rackCanvas);
 
     const auto addModule = [&](const char* title, const char* tagline,
                                std::initializer_list<const char*> parts)
@@ -325,27 +318,37 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
         modules.push_back(std::move(module));
     };
 
-    addModule("Master Control", "Signal integrity  /  gain staging  /  oversampling", {"Global"});
-    addModule("Ocean & Furnace", "Dual analog-style dynamics engines", {"Ocean", "Furnace"});
-    addModule("Parametric Equalizer", "Four fully independent precision bands", {"Parametric"});
-    addModule("Pultec Equalizer", "Broad musical tone shaping", {"Pultec"});
-    addModule("Shadow Compressor", "Optical and discrete compression stages", {"Shadow"});
-    addModule("Exciter", "Dual-band harmonic character", {"Exciter"});
-    addModule("Baxandall Mid / Side", "Independent M/S tone control  /  linked routing", {"Bax Mid", "Bax Side"});
-    addModule("Tape Machine", "Studio  /  Vintage  /  Modern saturation", {"Tape"});
-    addModule("Stereo Image", "Mono Maker  /  width  /  routing", {"Stereo"});
-    addModule("Master Limiter", "Final output safety  /  true-peak control", {"Limiter"});
+    addModule("Master Control", "GAIN / OVERSAMPLING", {"Global"});
+    addModule("Ocean & Furnace", "DUAL DYNAMICS", {"Ocean", "Furnace"});
+    addModule("Parametric EQ", "FOUR BANDS", {"Parametric"});
+    addModule("Pultec EQ", "MUSICAL SHELVES", {"Pultec"});
+    addModule("Shadow Compressor", "OPTICAL / DISCRETE", {"Shadow"});
+    addModule("Exciter", "HARMONIC DETAIL", {"Exciter"});
+    addModule("Baxandall M/S", "MID / SIDE SHELVES", {"Bax Mid", "Bax Side"});
+    addModule("Tape Machine", "ANALOG CHARACTER", {"Tape"});
+    addModule("Stereo Image", "WIDTH / MONO MAKER", {"Stereo"});
+    addModule("Master Limiter", "FINAL OUTPUT", {"Limiter"});
 
+    int y = 0;
+    for (auto& module : modules)
+    {
+        const int height = module->requiredHeight();
+        module->setBounds(0, y, designWidth, height);
+        y += height + moduleGap;
+    }
+    rackHeight = y - moduleGap;
+    designHeight = headerHeight + rackHeight + footerHeight;
+    rackCanvas.setBounds(0, headerHeight, designWidth, rackHeight);
+    // The rack and all its interactive child components get one shared transform.
     setResizable(true, true);
-    setResizeLimits(790, 520, 1800, 1400);
-    setSize(1130, 820);
+    setResizeLimits(900, 580, 1800, 1200);
+    setSize(1220, 810);
     startTimerHz(25);
 }
 
 SteamMasterEditor::~SteamMasterEditor()
 {
     stopTimer();
-    viewport.setViewedComponent(nullptr, false);
     modules.clear();
     setLookAndFeel(nullptr);
 }
@@ -376,37 +379,40 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     g.setGradientFill(juce::ColourGradient(juce::Colour(0xff122230), 0.f, 0.f,
                                           background, bounds.getRight(), bounds.getBottom(), false));
     g.fillAll();
+    juce::Graphics::ScopedSaveState state(g);
+    g.addTransform(juce::AffineTransform::scale(uiScale).translated(uiOffsetX, uiOffsetY));
     g.setColour(copper);
-    g.fillRect(0, 0, getWidth(), 3);
+    g.fillRect(0, 0, designWidth, 3);
 
     g.setColour(juce::Colour(0xfff3f3ee));
-    g.setFont(juce::Font(juce::FontOptions(27.f)));
-    g.drawText("STEAMMASTER", 24, 15, 245, 36, juce::Justification::centredLeft);
+    g.setFont(juce::Font(juce::FontOptions(26.f)));
+    g.drawText("STEAMMASTER", 19, 11, 245, 35, juce::Justification::centredLeft);
     g.setColour(aqua);
-    g.drawText("EZ", 263, 15, 55, 36, juce::Justification::centredLeft);
+    g.drawText("EZ", 261, 11, 55, 35, juce::Justification::centredLeft);
     g.setColour(secondaryText);
-    g.setFont(juce::Font(juce::FontOptions(11.f)));
-    g.drawText("PRECISION MASTERING  //  NATIVE JUCE EDITION", 27, 52, 420, 19,
+    g.setFont(juce::Font(juce::FontOptions(10.f)));
+    g.drawText("COMPACT MASTERING RACK  /  ALL MODULES VISIBLE", 22, 44, 500, 18,
                juce::Justification::centredLeft);
 
-    const int x = getWidth() - 352;
+    const int x = designWidth - 352;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
     g.setColour(secondaryText);
-    g.drawText("INPUT", x, 12, 65, 18, juce::Justification::centredLeft);
-    g.drawText("OUTPUT", x + 167, 12, 80, 18, juce::Justification::centredLeft);
+    g.drawText("INPUT", x, 8, 65, 16, juce::Justification::centredLeft);
+    g.drawText("OUTPUT", x + 167, 8, 80, 16, juce::Justification::centredLeft);
     for (int i = 0; i < 4; ++i)
     {
         const int pair = i / 2, channel = i % 2;
         const int sx = x + pair * 167;
-        const int sy = 34 + channel * 21;
+        const int sy = 25 + channel * 17;
         g.setColour(secondaryText);
-        g.drawText(channel == 0 ? "L" : "R", sx, sy, 13, 13, juce::Justification::centredLeft);
-        drawMeter(g, juce::Rectangle<float>(float(sx + 17), float(sy + 2), 131.f, 9.f),
+        g.drawText(channel == 0 ? "L" : "R", sx, sy, 13, 12,
+                   juce::Justification::centredLeft);
+        drawMeter(g, juce::Rectangle<float>(float(sx + 17), float(sy + 2), 131.f, 8.f),
                   meterLevel[size_t(i)]);
     }
-
     g.setColour(juce::Colour(0xff354854));
-    g.drawLine(22.f, 87.f, float(getWidth() - 22), 87.f, 1.f);
+    g.drawLine(10.f, float(headerHeight - 3), float(designWidth - 10),
+               float(headerHeight - 3), 1.f);
 }
 
 void SteamMasterEditor::timerCallback()
@@ -421,19 +427,27 @@ void SteamMasterEditor::timerCallback()
         meterLevel[i] = target[i] > meterLevel[i]
                             ? target[i]
                             : 0.78f * meterLevel[i] + 0.22f * target[i];
-    repaint(juce::Rectangle<int>(getWidth() - 365, 8, 355, 74));
+
+    const auto meters = juce::Rectangle<float>(float(designWidth - 367), 2.f, 360.f, 63.f)
+                          .transformedBy(juce::AffineTransform::scale(uiScale)
+                                         .translated(uiOffsetX, uiOffsetY));
+    repaint(meters.toNearestInt());
 }
 
 void SteamMasterEditor::resized()
 {
-    viewport.setBounds(15, 100, getWidth() - 30, getHeight() - 111);
-    const int contentWidth = juce::jmax(450, viewport.getWidth() - 12);
-    int y = 0;
-    for (auto& module : modules)
-    {
-        const int moduleHeight = module->requiredHeight(contentWidth);
-        module->setBounds(0, y, contentWidth, moduleHeight);
-        y += moduleHeight + 10;
-    }
-    rackCanvas.setSize(contentWidth, y + 10);
+    if (designHeight <= 0) return;
+    constexpr float margin = 8.f;
+    const float availableW = juce::jmax(1.f, float(getWidth()) - margin * 2.f);
+    const float availableH = juce::jmax(1.f, float(getHeight()) - margin * 2.f);
+    uiScale = juce::jmin(availableW / float(designWidth),
+                          availableH / float(designHeight));
+    uiOffsetX = (float(getWidth()) - float(designWidth) * uiScale) * 0.5f;
+    uiOffsetY = (float(getHeight()) - float(designHeight) * uiScale) * 0.5f;
+
+    // Scale the *entire* fixed-coordinate rack (including controls and hit tests).
+    // No scrollbars, no responsive reflow, no per-knob repositioning.
+    rackCanvas.setTransform(juce::AffineTransform::scale(uiScale)
+                                .translated(uiOffsetX, uiOffsetY));
+    repaint();
 }

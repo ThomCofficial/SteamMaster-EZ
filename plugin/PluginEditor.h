@@ -22,8 +22,15 @@ private:
 
     SteamMasterProcessor& processor;
     std::unique_ptr<juce::LookAndFeel_V4> skin;
-    juce::Viewport viewport;
     juce::Component rackCanvas;
+    static constexpr int designWidth = 1440;
+    static constexpr int headerHeight = 70;
+    static constexpr int footerHeight = 8;
+    static constexpr int moduleGap = 5;
+    int rackHeight = 0;
+    int designHeight = 0;
+    float uiScale = 1.f;
+    float uiOffsetX = 0.f, uiOffsetY = 0.f;
     std::vector<std::unique_ptr<ModulePanel>> modules;
     std::array<float, 4> meterLevel{};
 

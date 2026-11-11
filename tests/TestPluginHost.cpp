@@ -83,6 +83,20 @@ int main(){
   std::mt19937 rng(0x534d);
   for(double fs:{44100.,48000.,96000.}){
     auto p=std::make_unique<SteamMasterProcessor>();
+    // All sound-changing modules start bypassed; global signal path stays enabled
+    // so switching on any individual processor immediately works.
+    for (const char* id : {"ocean_in", "furnace_in", "parametric_in",
+             "pultec_in", "shadow_in", "shadow_optical_in", "shadow_discrete_in",
+             "exciter_in", "bax_mid_in", "bax_side_in", "tape_in",
+             "stereo_in", "limiter_in"})
+    {
+        auto* value = p->state.getRawParameterValue(id);
+        if (value == nullptr || value->load() != 0.f)
+            throw std::runtime_error(std::string("module should default bypassed: ") + id);
+    }
+    if (auto* global = p->state.getRawParameterValue("global_in");
+        global == nullptr || global->load() != 1.f)
+        throw std::runtime_error("global signal path must remain enabled");
     p->prepareToPlay(fs,512);
     if(p->getLatencySamples()<=0)throw std::runtime_error("latency not reported");
     if(!p->hasEditor())throw std::runtime_error("missing editor");

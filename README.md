@@ -1,5 +1,13 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
+## Compact fixed rack (EZ v1.1)
+
+- **Every processing module starts bypassed on a fresh instance**: Ocean, Furnace, Parametric EQ, Pultec, Shadow (including its internal stages), Exciter, Bax Mid, Bax Side, Tape, Stereo Image and Limiter. Global master remains enabled so any module you turn on works immediately. Existing saved sessions still restore their saved states.
+- All **10 rack panels and 108 parameters** appear together in a **single no-scroll interface**, with a default window of 1220 x 810. Control positions are fixed in a virtual 1440-unit rack.
+- JUCE applies **one uniform affine transform** to the entire editor rack when resized. Module order, knob arrangement and relative positions never change. Horizontal/vertical spare room is letterboxed.
+- Stereo Image has a frontend ON/OFF control (default OFF) which feeds neutral width / disabled Mono Maker values to the unchanged DSP when bypassed.
+- The underlying SteamMaster v1.7 DSP is not modified.
+
 This is an **independent** edition of SteamMaster. It uses the **v1.7-performance-character DSP engine** and a full native JUCE editor; the original SteamMaster repository is not modified.
 
 - **10 continuously stacked modules**, in signal-chain order: Master Control; Ocean/Furnace; Parametric EQ; Pultec EQ; Shadow Compressor; Exciter; Baxandall M/S; Tape; Stereo Image; Limiter.
