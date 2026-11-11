@@ -166,7 +166,6 @@ public:
         title.setText(name.toUpperCase(), juce::dontSendNotification);
         title.setFont(juce::Font(juce::FontOptions(10.1f)));
         setComponentID(id);
-        setTooltip(parameter.getName(256));
         title.setJustificationType(juce::Justification::centred);
         title.setColour(juce::Label::textColourId, secondaryText);
         title.setInterceptsMouseClicks(false, false);
