@@ -566,6 +566,15 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     g.setColour(secondaryText);
     g.drawText("INPUT PEAK", x, 6, 100, 15, juce::Justification::centredLeft);
     g.drawText("OUTPUT PEAK", x + 238, 6, 110, 15, juce::Justification::centredLeft);
+    const float ceiling = processor.state.getRawParameterValue("limiter_ceiling_dbtp")->load(std::memory_order_relaxed);
+    const float actualTP = processor.limiterMeasuredTruePeak.load(std::memory_order_relaxed);
+    const bool limiterOn = processor.state.getRawParameterValue("limiter_in")->load(std::memory_order_relaxed) > 0.5f;
+    const float actualTPDb = juce::Decibels::gainToDecibels(juce::jmax(0.000001f, actualTP));
+    const bool warning = limiterOn && actualTPDb > ceiling + 0.05f;
+    g.setColour(warning ? juce::Colour(0xfff28a75) : secondaryText);
+    g.setFont(juce::Font(juce::FontOptions(11.f)));
+    const auto label = limiterOn ? ("TP " + juce::String(actualTPDb, 1) + " dBTP") : juce::String("TP --");
+    g.drawText(label, 768, 23, 167, 26, juce::Justification::centredRight);
     for (int i = 0; i < 4; ++i)
     {
         const int pair = i / 2, channel = i % 2;
@@ -611,7 +620,7 @@ void SteamMasterEditor::timerCallback()
     }
     for (auto& module : modules) module->refreshStatus();
 
-    const auto meters = juce::Rectangle<float>(float(designWidth - 499), 2.f, 495.f, 63.f)
+    const auto meters = juce::Rectangle<float>(767.f, 2.f, float(designWidth - 767), 63.f)
                           .transformedBy(juce::AffineTransform::scale(uiScale)
                                          .translated(uiOffsetX, uiOffsetY));
     repaint(meters.toNearestInt());

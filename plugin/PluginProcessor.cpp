@@ -153,6 +153,7 @@ void SteamMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     const auto limiterGR = rack->limiter.gainReductionDb();
     limiterReductionDb.store(float(std::max(std::abs(limiterGR.l), std::abs(limiterGR.r))),
                              std::memory_order_relaxed);
+    limiterMeasuredTruePeak.store(float(rack->limiter.measuredOutputTruePeak()), std::memory_order_relaxed);
     for (int c = 2; c < buffer.getNumChannels(); ++c)
         buffer.clear(c, 0, buffer.getNumSamples());
 }
