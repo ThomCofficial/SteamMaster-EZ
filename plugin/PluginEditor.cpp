@@ -451,6 +451,24 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
     addAndMakeVisible(rackCanvas);
     addAndMakeVisible(compareA);
     addAndMakeVisible(compareB);
+    addAndMakeVisible(resetAll);
+    resetAll.setTooltip("Reset all parameters to their default values. Requires two clicks to confirm.");
+    resetAll.onClick = [this]
+    {
+        if (resetConfirmTicks == 0)
+        {
+            resetConfirmTicks = 100; // 4-second confirmation window at 25 Hz
+            resetAll.setButtonText("CONFIRM");
+            return;
+        }
+        resetConfirmTicks = 0;
+        resetAll.setButtonText("RESET");
+        for (auto* parameter : processor.getParameters())
+            parameter->setValueNotifyingHost(parameter->getDefaultValue());
+    };
+    compareA.setComponentID("ez_compare_a");
+    compareB.setComponentID("ez_compare_b");
+    resetAll.setComponentID("ez_reset");
     compareA.setTooltip("Compare A: recall the stored A settings.");
     compareB.setTooltip("Compare B: recall the stored B settings.");
     compareA.onClick = [this] { switchComparison(0); };
@@ -599,6 +617,8 @@ void SteamMasterEditor::paint(juce::Graphics& g)
 
 void SteamMasterEditor::timerCallback()
 {
+    if (resetConfirmTicks > 0 && --resetConfirmTicks == 0)
+        resetAll.setButtonText("RESET");
     const std::array<float, 4> target{
         processor.inputPeakL.load(std::memory_order_relaxed),
         processor.inputPeakR.load(std::memory_order_relaxed),
@@ -668,6 +688,8 @@ void SteamMasterEditor::resized()
                                 .translated(uiOffsetX, uiOffsetY));
     const auto scaled = juce::AffineTransform::scale(uiScale)
                             .translated(uiOffsetX, uiOffsetY);
+    resetAll.setBounds(juce::Rectangle<float>(535.f, 18.f, 87.f, 31.f)
+                          .transformedBy(scaled).getSmallestIntegerContainer());
     compareA.setBounds(juce::Rectangle<float>(635.f, 18.f, 54.f, 31.f)
                            .transformedBy(scaled).getSmallestIntegerContainer());
     compareB.setBounds(juce::Rectangle<float>(694.f, 18.f, 54.f, 31.f)

@@ -36,10 +36,11 @@ private:
     std::array<float, 4> meterLevel{};
     std::array<float, 4> meterPeakHold{};
     std::array<int, 4> holdTicks{};
-    juce::TextButton compareA{"A"}, compareB{"B"};
+    juce::TextButton compareA{"A"}, compareB{"B"}, resetAll{"RESET"};
     std::array<std::vector<float>, 2> compareState;
     std::array<bool, 2> compareValid{false, false};
     int currentComparison = 0;
+    int resetConfirmTicks = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SteamMasterEditor)
 };

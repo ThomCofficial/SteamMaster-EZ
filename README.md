@@ -1,5 +1,15 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
+## Native rack polish (EZ v1.3)
+
+- Larger controls, taller rack units, more visible grouped knobs and a fit-to-rack aspect ratio.
+- Gain-reduction meters directly under Ocean/Furnace, Shadow and Limiter sections.
+- Unit-aware parameter text is restored *after* JUCE APVTS attachment initialization to avoid unwanted numeric defaults.
+- Built-in A/B comparison snapshots (A and B buttons). A initially holds the starting parameter state; first switch to B clones it; later switching stores the current slot and restores the other. Snapshots are temporary within the editor session.
+- RESET requires two clicks within four seconds to prevent accidental mass changes. It restores parameter defaults and notifies the host.
+- True-peak readout and warning when the limiter's measured true-peak exceeds its current ceiling while the limiter is active.
+- The working v1.2 head is preserved as `backup/ez-v1.2-working`; signal processing code remains untouched.
+
 ## Refined, fixed rack (EZ v1.2)
 
 - No reflow, scrollbars, or image sprites. All four Parametric EQ bands are in **one single row**.
