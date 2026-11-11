@@ -327,7 +327,7 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
     // delay another 2ms later, allowing correction before output. This stage
     // carries NO new user parameters or GUI features.
     const auto p=postPeak(input);
-    const double target=ceiling*dbToGain(-.15); // small interpolation margin
+    const double target=ceiling*dbToGain(-.35); // conservative ISP margin for higher-rate sweeps
     const double linked=std::max(p.l,p.r);
     const double weight=forceLinked_?1.:link_.value();
     const double l=p.l+(linked-p.l)*weight;
