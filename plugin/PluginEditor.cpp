@@ -175,7 +175,7 @@ public:
         {
             combo = std::make_unique<juce::ComboBox>();
             combo->addItemList(choice->choices, 1);
-            combo->setTooltip(id);
+            combo->setTooltip(parameter.getName(256) + ": choose a stepped setting.");
             addAndMakeVisible(*combo);
             comboAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
                 state, id, *combo);
@@ -184,7 +184,7 @@ public:
         {
             toggle = std::make_unique<juce::ToggleButton>();
             toggle->setClickingTogglesState(true);
-            toggle->setTooltip(id);
+            toggle->setTooltip(parameter.getName(256) + ": enable or bypass.");
             addAndMakeVisible(*toggle);
             buttonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
                 state, id, *toggle);
@@ -200,13 +200,17 @@ public:
             {
                 return parseParameterValue(id, text);
             };
-            knob->setTooltip(id);
+            knob->setTooltip(parameter.getName(256) + ": drag to adjust; double-click to reset.");
             if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(&parameter))
                 knob->setDoubleClickReturnValue(true,
                     ranged->convertFrom0to1(parameter.getDefaultValue()));
             addAndMakeVisible(*knob);
             sliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
                 state, id, *knob);
+            // Apply value formatting after the APVTS attachment sets up the slider.
+            knob->textFromValueFunction = [id](double v) { return formatParameterValue(id, v); };
+            knob->valueFromTextFunction = [id](const juce::String& text) { return parseParameterValue(id, text); };
+            knob->updateText();
         }
     }
 
@@ -225,8 +229,8 @@ public:
         const int h = getHeight();
         title.setBounds(2, 3, w - 4, 13);
         if (knob) knob->setBounds(3, 16, w - 6, h - 18);
-        if (combo) combo->setBounds(4, 25, w - 8, 27);
-        if (toggle) toggle->setBounds(4, 24, w - 8, 29);
+        if (combo) combo->setBounds(4, 31, w - 8, 29);
+        if (toggle) toggle->setBounds(4, 31, w - 8, 29);
     }
 
 private:
@@ -278,7 +282,7 @@ public:
         jassert(!controls.empty());
     }
 
-    int requiredHeight() const noexcept { return index == 3 ? 84 : 72; }
+    int requiredHeight() const noexcept { return index == 3 ? 98 : 88; }
 
     void refreshStatus()
     {
@@ -289,13 +293,13 @@ public:
         {
             isActive = next;
             for (auto& control : controls)
-                control->setAlpha(isActive ? 1.f : 0.84f);
+                control->setAlpha(isActive ? 1.f : 0.90f);
             repaint();
         }
         else if (index == 2 || index == 5 || index == 10)
         {
             // Small gain-reduction displays are read-only telemetry.
-            repaint(juce::Rectangle<int>(15, 52, 169, 18));
+            repaint(juce::Rectangle<int>(15, 52, 169, 34));
         }
     }
 
@@ -309,7 +313,8 @@ public:
         g.drawRoundedRectangle(area, 8.f, isActive ? 1.3f : 0.8f);
 
         // Solid rack identity block + illuminated channel status.
-        g.setColour(isActive ? aqua : copper.withAlpha(0.42f));
+        const auto tint = (index == 2 || index == 5 || index == 10) ? copper : ((index == 3 || index == 4 || index == 7) ? aqua : juce::Colour(0xffd0ae86));
+        g.setColour(isActive ? tint : tint.withAlpha(0.42f));
         g.fillRoundedRectangle(juce::Rectangle<float>(9.f, 12.f, 3.f,
                                 float(getHeight() - 24)), 1.5f);
         g.setColour(isActive ? aqua : juce::Colour(0xff465764));
@@ -346,12 +351,33 @@ public:
             g.setColour(copper);
             g.drawFittedText(reduction, 94, 52, 91, 16,
                              juce::Justification::centredRight, 1);
+            const auto drawGR = [&](float value, float x, float width) {
+                g.setColour(juce::Colour(0xff0b1925));
+                g.fillRoundedRectangle(x, 74.f, width, 6.f, 2.f);
+                g.setColour(isActive ? aqua : secondaryText.withAlpha(0.45f));
+                g.fillRoundedRectangle(x, 74.f, width * juce::jlimit(0.f, 1.f, std::abs(value) / 18.f), 6.f, 2.f);
+            };
+            if (index == 2) {
+                drawGR(processor.oceanReductionDb.load(std::memory_order_relaxed), 18.f, 77.f);
+                drawGR(processor.furnaceReductionDb.load(std::memory_order_relaxed), 103.f, 77.f);
+            } else if (index == 5) {
+                drawGR(processor.shadowOpticalReductionDb.load(std::memory_order_relaxed), 18.f, 77.f);
+                drawGR(processor.shadowDiscreteReductionDb.load(std::memory_order_relaxed), 103.f, 77.f);
+            } else if (index == 10) {
+                drawGR(processor.limiterReductionDb.load(std::memory_order_relaxed), 18.f, 162.f);
+            }
         }
 
         g.setColour(juce::Colour(0xff3b4c5b));
         g.drawLine(float(controlLeft - 8), 7.f,
                    float(controlLeft - 8), float(getHeight() - 7), 1.f);
 
+        if (index == 7 && groups.size() == 2) {
+            g.setColour(aqua.withAlpha(0.7f));
+            g.setFont(juce::Font(juce::FontOptions(10.f)));
+            g.drawText("MID", controlLeft + 8, 2, 45, 13, juce::Justification::centredLeft);
+            g.drawText("SIDE", controlLeft + 615, 2, 45, 13, juce::Justification::centredLeft);
+        }
         // Parametric EQ: group all 4 controls for each of 4 bands on ONE row.
         if (index == 3)
         {
@@ -361,7 +387,7 @@ public:
             for (int band = 0; band < 4; ++band)
             {
                 const float x = float(firstX + (bandStart + band * 4) * pitch - 3);
-                const auto bandArea = juce::Rectangle<float>(x, 6.f, float(pitch * 4 - 2), 71.f);
+                const auto bandArea = juce::Rectangle<float>(x, 6.f, float(pitch * 4 - 2), 85.f);
                 g.setColour((band % 2 == 0 ? aqua : copper).withAlpha(0.055f));
                 g.fillRoundedRectangle(bandArea, 6.f);
                 g.setColour((band % 2 == 0 ? aqua : copper).withAlpha(0.42f));
@@ -390,7 +416,7 @@ public:
             constexpr int firstX = controlLeft + 2;
             constexpr int pitch = 64;
             for (int i = 0; i < count; ++i)
-                controls[size_t(i)]->setBounds(firstX + i * pitch, 17, 60, 57);
+                controls[size_t(i)]->setBounds(firstX + i * pitch, 18, 60, 74);
         }
         else
         {
@@ -399,7 +425,7 @@ public:
             for (int i = 0; i < count; ++i)
             {
                 const int x = controlLeft + slot * i + (slot - cellWidth) / 2;
-                controls[size_t(i)]->setBounds(x, 7, cellWidth, 58);
+                controls[size_t(i)]->setBounds(x, 8, cellWidth, 75);
             }
         }
     }
@@ -459,7 +485,7 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
     // The rack and all its interactive child components get one shared transform.
     setResizable(true, true);
     setResizeLimits(900, 580, 1800, 1200);
-    setSize(1220, 810);
+    setSize(1220, 835);
     startTimerHz(25);
 }
 
