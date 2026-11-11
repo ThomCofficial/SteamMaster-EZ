@@ -115,6 +115,12 @@ if(STEAMMASTER_BUILD_VST3)
 endif()
 
 if(BUILD_TESTING)
+  add_executable(steammaster_reliability_tests tests/TestReliability.cpp)
+  target_link_libraries(steammaster_reliability_tests PRIVATE steammaster_dsp)
+  add_test(NAME SteamMasterReliabilityTests COMMAND steammaster_reliability_tests)
+endif()
+
+if(BUILD_TESTING)
   add_executable(steammaster_full_chain_stress tests/TestFullChainStress.cpp)
   target_link_libraries(steammaster_full_chain_stress PRIVATE steammaster_dsp)
   add_test(NAME SteamMasterFullChainStress COMMAND steammaster_full_chain_stress)
