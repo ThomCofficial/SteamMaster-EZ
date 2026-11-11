@@ -31,69 +31,126 @@ public:
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
-                          float pos, float startAngle, float endAngle, juce::Slider&) override
+                          float pos, float startAngle, float endAngle, juce::Slider& knob) override
     {
-        const float cx = x + width * 0.5f, cy = y + height * 0.5f;
-        const float radius = juce::jmin(float(width), float(height)) * 0.365f;
-        const float angle = startAngle + pos * (endAngle - startAngle);
-        const auto ring = radius + 4.f;
+        // Individually machined titanium knob with a recessed, illuminated encoder ring.
+        // Native JUCE slider handles all mouse gestures and APVTS automation.
+        const float cx=x+width*.5f, cy=y+height*.5f;
+        const float r=juce::jmin(float(width),float(height))*.353f;
+        const float angle=startAngle+pos*(endAngle-startAngle);
+        const auto brass=juce::Colour(0xffcaa77a);
+        const auto glow=knob.isMouseOverOrDragging() ? juce::Colour(0xff8cf8e2) : aqua;
 
-        juce::Path track, progress;
-        track.addCentredArc(cx, cy, ring, ring, 0.f, startAngle, endAngle, true);
-        progress.addCentredArc(cx, cy, ring, ring, 0.f, startAngle, angle, true);
-        g.setColour(juce::Colour(0xff354652));
-        g.strokePath(track, juce::PathStrokeType(3.2f, juce::PathStrokeType::curved,
-                                               juce::PathStrokeType::rounded));
-        g.setColour(aqua);
-        g.strokePath(progress, juce::PathStrokeType(3.6f, juce::PathStrokeType::curved,
-                                                  juce::PathStrokeType::rounded));
+        g.setColour(juce::Colours::black.withAlpha(.34f));
+        g.fillEllipse(cx-r-2.f,cy-r+3.f,(r+2.f)*2.f,(r+2.f)*2.f);
+        const float ring=r+5.f;
+        juce::Path groove, progress;
+        groove.addCentredArc(cx,cy,ring,ring,0.f,startAngle,endAngle,true);
+        progress.addCentredArc(cx,cy,ring,ring,0.f,startAngle,angle,true);
+        g.setColour(juce::Colour(0xff050d14));
+        g.strokePath(groove,juce::PathStrokeType(4.6f));
+        g.setColour(juce::Colour(0xff344a59));
+        g.strokePath(groove,juce::PathStrokeType(2.4f));
+        g.setColour(glow.withAlpha(.18f));
+        g.strokePath(progress,juce::PathStrokeType(6.4f));
+        g.setColour(glow);
+        g.strokePath(progress,juce::PathStrokeType(2.6f));
 
-        const auto disc = juce::Rectangle<float>(cx-radius, cy-radius, radius*2, radius*2);
-        g.setColour(juce::Colour(0xff071019));
-        g.fillEllipse(disc.expanded(1.5f));
-        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff536777), cx-radius, cy-radius,
-                                              juce::Colour(0xff152432), cx+radius, cy+radius, false));
-        g.fillEllipse(disc);
-        g.setColour(copper.withAlpha(0.55f));
-        g.drawEllipse(disc.reduced(1.4f), 0.8f);
-        const float inner = radius*0.75f;
-        g.setColour(copper);
-        g.drawLine(cx, cy, cx+std::sin(angle)*inner, cy-std::cos(angle)*inner, 3.f);
-        g.setColour(juce::Colour(0xff0d1a24));
-        g.fillEllipse(cx-2.5f, cy-2.5f, 5.f, 5.f);
+        for(int i=0;i<=10;++i)
+        {
+            const float a=startAngle+float(i)*(endAngle-startAngle)/10.f;
+            const float s=std::sin(a), c=std::cos(a);
+            const float outer=ring+6.f;
+            const float inner=outer-(i%5==0?3.3f:1.7f);
+            g.setColour((i%5==0 ? brass : juce::Colour(0xff70818c)).withAlpha(.78f));
+            g.drawLine(cx+s*inner,cy-c*inner,cx+s*outer,cy-c*outer,i%5==0?1.15f:.7f);
+        }
+
+        const auto rim=juce::Rectangle<float>(cx-r,cy-r,2.f*r,2.f*r);
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff82919b),cx-r,cy-r,
+                                               juce::Colour(0xff162430),cx+r,cy+r,false));
+        g.fillEllipse(rim);
+        g.setColour(juce::Colour(0xffcfb28a).withAlpha(.52f));
+        g.drawEllipse(rim.reduced(.7f),1.f);
+        const auto face=rim.reduced(3.1f);
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff394b5b),cx-r*.5f,cy-r*.8f,
+                                               juce::Colour(0xff0e1b27),cx+r*.7f,cy+r*.8f,false));
+        g.fillEllipse(face);
+        g.setColour(juce::Colour(0xffaebfc5).withAlpha(.23f));
+        g.drawEllipse(face.reduced(.7f),.8f);
+
+        const float inner=r*.72f;
+        const float tx=cx+std::sin(angle)*inner, ty=cy-std::cos(angle)*inner;
+        g.setColour(juce::Colours::black.withAlpha(.65f));
+        g.drawLine(cx+1.f,cy+1.f,tx+1.f,ty+1.f,3.6f);
+        g.setColour(brass.brighter(.19f));
+        g.drawLine(cx,cy,tx,ty,2.5f);
+        g.setColour(juce::Colour(0xff162531));
+        g.fillEllipse(cx-2.5f,cy-2.5f,5.f,5.f);
+        g.setColour(juce::Colour(0xff84939e).withAlpha(.55f));
+        g.drawEllipse(cx-2.5f,cy-2.5f,5.f,5.f,.8f);
     }
 
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
-                          bool highlighted, bool) override
+                          bool highlighted, bool down) override
     {
-        const auto area = button.getLocalBounds().toFloat().reduced(6.f, 4.f);
-        const bool enabled = button.getToggleState();
-        const auto fill = enabled ? juce::Colour(0xff164f4b) : juce::Colour(0xff263441);
-        g.setColour(fill.brighter(highlighted ? 0.12f : 0.f));
-        g.fillRoundedRectangle(area, 7.f);
-        g.setColour(enabled ? aqua : juce::Colour(0xff586b78));
-        g.drawRoundedRectangle(area.reduced(0.5f), 7.f, 1.2f);
-        g.setFont(juce::Font(juce::FontOptions(9.2f)));
-        g.drawFittedText(enabled ? "ON" : "OFF", area.toNearestInt(),
-                         juce::Justification::centred, 1);
+        const auto a=button.getLocalBounds().toFloat().reduced(5.f,3.f);
+        const bool enabled=button.getToggleState();
+        const auto led=enabled ? aqua : juce::Colour(0xff677d86);
+        g.setColour(juce::Colours::black.withAlpha(.35f));
+        g.fillRoundedRectangle(a.translated(0.f,2.f),5.f);
+        g.setGradientFill(juce::ColourGradient(
+            enabled?juce::Colour(0xff315e60):juce::Colour(0xff344451),a.getX(),a.getY(),
+            enabled?juce::Colour(0xff13353a):juce::Colour(0xff14212d),a.getX(),a.getBottom(),false));
+        g.fillRoundedRectangle(a,5.f);
+        g.setColour(enabled ? led.withAlpha(.68f) : juce::Colour(0xff607483));
+        g.drawRoundedRectangle(a.reduced(.6f),5.f,1.f);
+        g.setColour(enabled?led:juce::Colour(0xff172632));
+        g.fillEllipse(a.getX()+6.f,a.getCentreY()-2.2f,4.4f,4.4f);
+        g.setColour(juce::Colour(0xffebf2f1).withAlpha(highlighted?1.f:.86f));
+        g.setFont(juce::Font(juce::FontOptions(9.3f)));
+        g.drawFittedText(enabled?"ON":"OFF",a.withTrimmedLeft(11.f).toNearestInt(),
+                         juce::Justification::centred,1);
+        if(down){g.setColour(juce::Colours::black.withAlpha(.17f));g.fillRoundedRectangle(a,5.f);}
     }
 
-    void drawComboBox(juce::Graphics& g, int width, int height, bool,
-                      int, int, int, int, juce::ComboBox&) override
+    void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
+                      int, int, int, int, juce::ComboBox& box) override
     {
-        const auto rect = juce::Rectangle<float>(0.f, 0.f, float(width), float(height));
-        g.setColour(juce::Colour(0xff1a2a38));
-        g.fillRoundedRectangle(rect.reduced(0.5f), 6.f);
-        g.setColour(juce::Colour(0xff46616e));
-        g.drawRoundedRectangle(rect.reduced(0.7f), 6.f, 1.f);
-        const float x = width - 11.f, y = height * 0.5f;
+        auto a=juce::Rectangle<float>(.5f,.5f,float(width)-1.f,float(height)-1.f);
+        g.setColour(juce::Colours::black.withAlpha(.33f));
+        g.fillRoundedRectangle(a.translated(0.f,1.8f),5.f);
+        g.setGradientFill(juce::ColourGradient(
+            juce::Colour(0xff374a59),a.getX(),a.getY(),
+            juce::Colour(0xff13232f),a.getX(),a.getBottom(),false));
+        g.fillRoundedRectangle(a,5.f);
+        g.setColour(juce::Colour(0xff7d91a0).withAlpha(box.isMouseOverOrDragging()?.78f:.42f));
+        g.drawRoundedRectangle(a.reduced(.6f),5.f,1.f);
+        const float x=width-11.f,y=height*.5f;
         juce::Path arrow;
-        arrow.startNewSubPath(x - 4.f, y - 2.f);
-        arrow.lineTo(x + 4.f, y - 2.f);
-        arrow.lineTo(x, y + 3.f);
+        arrow.startNewSubPath(x-3.3f,y-1.f);
+        arrow.lineTo(x+3.3f,y-1.f);
+        arrow.lineTo(x,y+2.8f);
         arrow.closeSubPath();
-        g.setColour(copper);
+        g.setColour(isButtonDown?aqua:copper);
         g.fillPath(arrow);
+    }
+
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                              const juce::Colour&, bool hovered, bool pressed) override
+    {
+        auto a=button.getLocalBounds().toFloat().reduced(1.3f,2.f);
+        const auto base=button.findColour(juce::TextButton::buttonColourId);
+        g.setColour(juce::Colours::black.withAlpha(.48f));
+        g.fillRoundedRectangle(a.translated(0.f,2.f),6.f);
+        g.setGradientFill(juce::ColourGradient(
+           base.brighter(hovered?.43f:.26f),a.getX(),a.getY(),
+           base.darker(pressed?.35f:.18f),a.getX(),a.getBottom(),false));
+        g.fillRoundedRectangle(a,6.f);
+        g.setColour((hovered?aqua:copper).withAlpha(hovered?.88f:.32f));
+        g.drawRoundedRectangle(a.reduced(.6f),6.f,1.1f);
+        g.setColour(juce::Colours::white.withAlpha(.12f));
+        g.drawLine(a.getX()+5.f,a.getY()+2.5f,a.getRight()-5.f,a.getY()+2.5f,.8f);
     }
 
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
@@ -216,11 +273,16 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        const auto area = getLocalBounds().toFloat().reduced(2.f);
-        g.setColour(juce::Colour(0xff152331));
-        g.fillRoundedRectangle(area, 8.f);
-        g.setColour(juce::Colour(0xff26394a));
-        g.drawRoundedRectangle(area, 8.f, 0.8f);
+        const auto area=getLocalBounds().toFloat().reduced(1.5f);
+        g.setColour(juce::Colours::black.withAlpha(.22f));
+        g.fillRoundedRectangle(area.translated(0.f,1.5f),5.5f);
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff20313e),area.getX(),area.getY(),
+                                              juce::Colour(0xff101d29),area.getRight(),area.getBottom(),false));
+        g.fillRoundedRectangle(area,5.5f);
+        g.setColour(juce::Colour(0xff718696).withAlpha(.24f));
+        g.drawRoundedRectangle(area.reduced(.5f),5.5f,.8f);
+        g.setColour(juce::Colour(0xffc6a77a).withAlpha(.12f));
+        g.drawLine(area.getX()+5.f,area.getY()+2.f,area.getRight()-5.f,area.getY()+2.f,.8f);
     }
 
     void resized() override
@@ -305,15 +367,28 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        const auto area = getLocalBounds().toFloat().reduced(1.0f);
-        g.setGradientFill(juce::ColourGradient(panelLight, 0.f, 0.f,
-                                               panelDark, float(getWidth()), float(getHeight()), false));
-        g.fillRoundedRectangle(area, 8.f);
-        g.setColour(isActive ? aqua.withAlpha(0.65f) : juce::Colour(0xff344554));
-        g.drawRoundedRectangle(area, 8.f, isActive ? 1.3f : 0.8f);
+        const auto area=getLocalBounds().toFloat().reduced(1.f);
+        const auto tint=(index==2||index==5||index==10) ? copper :
+                        ((index==3||index==4||index==7) ? aqua :
+                         juce::Colour(0xffd0ae86));
+        g.setColour(juce::Colours::black.withAlpha(.40f));
+        g.fillRoundedRectangle(area.translated(0.f,1.5f),8.f);
+        g.setGradientFill(juce::ColourGradient(
+            juce::Colour(0xff31424d),0.f,0.f,
+            juce::Colour(0xff111c28),float(getWidth()),float(getHeight()),false));
+        g.fillRoundedRectangle(area,8.f);
+        // A restrained, brushed-titanium highlight, kept behind the controls.
+        g.setColour(juce::Colours::white.withAlpha(.065f));
+        g.drawLine(10.f,2.f,float(getWidth()-10),2.f,.85f);
+        g.setColour(juce::Colours::black.withAlpha(.35f));
+        g.drawLine(9.f,float(getHeight()-3),float(getWidth()-9),float(getHeight()-3),.9f);
+        g.setColour(isActive?tint.withAlpha(.78f):juce::Colour(0xff566979).withAlpha(.68f));
+        g.drawRoundedRectangle(area.reduced(.5f),8.f,isActive?1.3f:.85f);
+        g.setColour(tint.withAlpha(isActive?.12f:.035f));
+        g.fillRoundedRectangle(juce::Rectangle<float>(3.f,5.f,196.f,float(getHeight()-10)),6.f);
 
         // Solid rack identity block + illuminated channel status.
-        const auto tint = (index == 2 || index == 5 || index == 10) ? copper : ((index == 3 || index == 4 || index == 7) ? aqua : juce::Colour(0xffd0ae86));
+
         g.setColour(isActive ? tint : tint.withAlpha(0.42f));
         g.fillRoundedRectangle(juce::Rectangle<float>(9.f, 12.f, 3.f,
                                 float(getHeight() - 24)), 1.5f);
