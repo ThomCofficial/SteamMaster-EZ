@@ -1,5 +1,31 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
+## Experimental GSSL Gold Furnace (separate plugin identity)
+
+This **GSSL Lab** build is intentionally on \`experiment/furnace-gssl-measured\`.
+It has its own VST3 identity and name (\`SteamMaster EZ GSSL Lab\`), so it cannot replace
+the known-good SteamMaster EZ plugin inside a Cubase project.
+
+- \`Furnace / GOLD VCA\` defaults **OFF**, preserving the existing DSP output.
+- When ON, Furnace uses an original level-dependent compression-curve design
+  informed by measurements of **14 user-supplied** GSSL Bus Gold NAM captures:
+  12 compressed L/R profiles (2:1, 4:1, 10:1; A10/Auto and A30/100ms), plus two
+  no-compression L/R tonal references.
+- The estimated response tables average the L/R model outputs of a steady
+  997 Hz test sine at -30, -24, -18, -12, -9, -6, -3, and 0 dBFS peak. The
+  threshold maps -24 dB to the original measurement axis. At higher or lower
+  thresholds, this is extrapolated rather than independently measured.
+- Captured attack/release settings are *not* directly recoverable from one
+  model's settings label; the NAM models have a finite ~132 ms receptive field.
+  This mode retains Furnace's existing attack and release engine.
+- The optional gentle VCA harmonics are an **approximation** motivated by the
+  two non-compression models' observed H2/H3, not an extracted hardware circuit.
+- **No .nam files, model weights or copyrighted captures are committed.**
+  Tables and coefficient choices are independent analysis.
+- The Lab is not claimed to be a faithful SSL hardware clone or fully validated
+  mastering release. Compare at matched loudness and keep the approved version.
+
+
 ## EZ v1.5 — Three predictive limiter designs (experimental)
 
 The previous three modes shared almost the same peak-gain envelope, differing primarily in release rate. They now use **separate predictive gain contours** and distinct musical priorities, without any additional UI controls:

@@ -23,6 +23,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SteamMasterProcessor::makeLa
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"furnace_attack",1},"Furnace / Attack",juce::StringArray{"0.1","0.3","1","3","10","30"},4));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"furnace_release",1},"Furnace / Release",juce::StringArray{"0.1","0.3","0.6","1.2","Auto"},1));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"furnace_sc_hpf",1},"Furnace / SC HPF",juce::StringArray{"Off","40","80","160","320","500"},0));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"furnace_gold",1},"Furnace / GOLD VCA",false));
     layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"parametric_in",1},"Parametric / IN",false));
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"parametric_mix",1},"Parametric / Mix",juce::NormalisableRange<float>(0.0f,100.0f,0.001f),100.0f));
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"parametric_output_db",1},"Parametric / Output dB",juce::NormalisableRange<float>(-12.0f,12.0f,0.001f),0.0f));
@@ -182,6 +183,7 @@ void SteamMasterProcessor::updateDSP() noexcept {
     rack->firstSix.ocean.set(o);
     FurnaceParameters fu;fu.common.in=v("furnace_in")>.5f;fu.common.mix=v("furnace_mix")/100.;
     fu.thresholdDb=v("furnace_threshold_db");fu.ratio=FurnaceRatio(int(v("furnace_ratio")));fu.attack=FurnaceAttack(int(v("furnace_attack")));fu.release=FurnaceRelease(int(v("furnace_release")));fu.scHpfHz=std::array<int,6>{0,40,80,160,320,500}[juce::jlimit(0,5,int(v("furnace_sc_hpf")))];
+    fu.goldMode=v("furnace_gold")>.5f;
     rack->firstSix.furnace.set(fu);
     ParametricParameters eq;eq.common.in=v("parametric_in")>.5f;eq.common.mix=v("parametric_mix")/100.;
     eq.outputDb=v("parametric_output_db");

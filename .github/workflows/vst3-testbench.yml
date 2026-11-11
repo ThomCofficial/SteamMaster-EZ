@@ -1,7 +1,7 @@
 name: SteamMaster EZ Windows VST3
 on:
   push:
-    branches: ['ez/**', 'main']
+    branches: ['ez/**', 'experiment/**', 'main']
   workflow_dispatch:
 
 jobs:
@@ -18,11 +18,11 @@ jobs:
       - name: Package SteamMaster EZ
         shell: pwsh
         run: |
-          $plugin = Get-ChildItem build-ez -Recurse -Directory -Filter 'SteamMaster EZ.vst3' | Select-Object -First 1
-          if (-not $plugin) { throw 'SteamMaster EZ.vst3 missing' }
-          Compress-Archive -Path $plugin.FullName -DestinationPath SteamMaster-EZ-Windows-VST3.zip
+          $plugin = Get-ChildItem build-ez -Recurse -Directory -Filter 'SteamMaster EZ GSSL Lab.vst3' | Select-Object -First 1
+          if (-not $plugin) { throw 'SteamMaster EZ GSSL Lab.vst3 missing' }
+          Compress-Archive -Path $plugin.FullName -DestinationPath SteamMaster-EZ-GSSL-Lab-Windows-VST3.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: SteamMaster-EZ-Windows-VST3
-          path: SteamMaster-EZ-Windows-VST3.zip
+          name: SteamMaster-EZ-GSSL-Lab-Windows-VST3
+          path: SteamMaster-EZ-GSSL-Lab-Windows-VST3.zip
           if-no-files-found: error

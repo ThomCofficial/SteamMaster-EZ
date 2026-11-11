@@ -218,7 +218,8 @@ void Ocean::set(const OceanParameters& p) noexcept {
     if(static_cast<unsigned>(p_.ratio)>=6u)p_.ratio=OceanRatio::R1_5;
     p_.attackMs=clamp(p.attackMs,25.,70.);
     p_.thresholdDb=clamp(p.thresholdDb,-60.,12.);
-    sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);setCommon(p.common);
+    sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);
+    goldMix_.set(p.goldMode?1.:0.);setCommon(p.common);
 }
 void Ocean::reset() noexcept {
     envelope_=reductionDb_=0.;sc_.reset();tube_.reset();tube_.setMode(quality_);
@@ -262,14 +263,72 @@ Stereo Ocean::processWet(Stereo in) noexcept {
     return {linear.l*.95+colored.l*.05,linear.r*.95+colored.r*.05};
 }
 
+// Measured from the user's 14 GSSL Bus Gold NAM captures at 48 kHz:
+// 997 Hz fundamental response, 8 fuller WaveNet? one per capture,
+// stereo means at -30,-24,-18,-12,-9,-6,-3,0 dBFS peak.
+// [0] 30 ms attack / 100 ms release; [1] 10 ms attack / Auto release.
+// These are model snapshots, NOT exact hardware transfer curves. At settings
+// outside the two captured presets the model only interpolates/extrapolates.
+double gsslGoldReduction(double inputDb, FurnaceRatio ratio, double style) noexcept {
+    static constexpr std::array<double,8> levels{
+        -30.,-24.,-18.,-12.,-9.,-6.,-3.,0.
+    };
+    static constexpr double table[2][3][8] = {
+        {
+            {.297,.687,1.488,2.467,2.984,3.331,3.541,3.674},
+            {.220,.407,1.150,2.609,3.647,4.537,5.171,5.565},
+            {.061,.063,.562,2.390,3.616,4.911,5.881,6.390}
+        },
+        {
+            {.849,1.293,2.080,3.562,4.484,4.964,5.204,5.323},
+            {.322,.697,1.507,3.071,4.539,5.057,5.400,5.622},
+            {.425,.650,1.222,3.134,4.680,5.599,6.223,6.592}
+        }
+    };
+    const unsigned which=ratio==FurnaceRatio::R2?0u:
+                         (ratio==FurnaceRatio::R4?1u:2u);
+    const auto evaluate=[&](unsigned profile) noexcept {
+        const double* p=table[profile][which];
+        if(inputDb<=levels.front())
+            return p[0]*std::exp((inputDb-levels.front())/6.);
+        if(inputDb>=levels.back()) {
+            // Outside the actual capture's training-level sweep, smoothly
+            // approach the *nominal* compressor slope rather than freezing GR.
+            const double x=inputDb-levels.back();
+            const double lastSlope=(p[7]-p[6])/3.;
+            const double nominal=1.-1./ratioFurnace(ratio);
+            return p[7]+lastSlope*x+
+                   (nominal-lastSlope)*(x-12.*(1.-std::exp(-x/12.)));
+        }
+        for(unsigned k=1;k<levels.size();++k)
+            if(inputDb<=levels[k]){
+                const double w=(inputDb-levels[k-1])/(levels[k]-levels[k-1]);
+                // Smooth, bounded interpolation between measured level points.
+                const double smooth=w*w*(3.-2.*w);
+                return p[k-1]+(p[k]-p[k-1])*smooth;
+            }
+        return p[7];
+    };
+    const double m=clamp(style,0.,1.);
+    return (1.-m)*evaluate(0)+m*evaluate(1);
+}
+
 void Furnace::prepare(double fs) noexcept {
-    Module::prepare(fs);sc_.prepare(fs);threshold_.prepare(fs,.012);threshold_.reset(p_.thresholdDb);set(p_);reset();
+    Module::prepare(fs);sc_.prepare(fs);threshold_.prepare(fs,.012);threshold_.reset(p_.thresholdDb);
+    goldMix_.prepare(fs,.018);
+    goldDcAlpha_=1.-std::exp(-2.*kPi*6./fs_);
+    set(p_);reset();
 }
 void Furnace::set(const FurnaceParameters& p) noexcept {
     p_=p;p_.thresholdDb=clamp(p.thresholdDb,-36.,15.);
     sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);setCommon(p.common);
 }
-void Furnace::reset() noexcept {envelope_=reductionDb_=autoFast_=autoSlow_=0.;sc_.reset();}
+void Furnace::reset() noexcept {
+    envelope_=reductionDb_=autoFast_=autoSlow_=0.;
+    goldSquareDC_={};
+    goldMix_.reset(p_.goldMode?1.:0.);
+    sc_.reset();
+}
 Stereo Furnace::processWet(Stereo in) noexcept {
     auto sc=sc_.process(in);
     const double target=levelOf(sc);
@@ -284,7 +343,22 @@ Stereo Furnace::processWet(Stereo in) noexcept {
     // These are *not* hardware-measured knee widths or threshold offsets.
     const double knee=p_.ratio==FurnaceRatio::R2?22.0:(p_.ratio==FurnaceRatio::R4?5.5:1.8);
     const double effectiveThreshold=threshold-(p_.ratio==FurnaceRatio::R2?.45:(p_.ratio==FurnaceRatio::R4?.10:0.));
-    const double requested=compressDb(gainToDb(envelope_),effectiveThreshold,ratioFurnace(p_.ratio),knee);
+    const double approved=compressDb(gainToDb(envelope_),effectiveThreshold,
+                                     ratioFurnace(p_.ratio),knee);
+    const double gold=goldMix_.next();
+    double requested=approved;
+    if(gold>1.e-7) {
+        // -24 dBFS is the explicit capture-reference threshold. Moving the
+        // user threshold shifts the level axis without silently altering
+        // the preset's exact physical knob value.
+        const double calibratedLevel=gainToDb(envelope_)-threshold-24.;
+        const double attackMs=attackFurnace(p_.attack);
+        const double fastPreset=clamp((30.-attackMs)/20.,0.,1.);
+        const double autoPreset=p_.release==FurnaceRelease::Auto?1.:0.;
+        const double captureBlend=.5*(fastPreset+autoPreset);
+        const double targetGold=gsslGoldReduction(calibratedLevel,p_.ratio,captureBlend);
+        requested=approved+(targetGold-approved)*gold;
+    }
     if(p_.release==FurnaceRelease::Auto) {
         // Parallel fast/slow recovery memories: transient GR releases promptly,
         // sustained GR leaves a longer tail. Both states always track the detector.
@@ -296,7 +370,22 @@ Stereo Furnace::processWet(Stereo in) noexcept {
         autoFast_=autoSlow_=reductionDb_;
     }
     const double gain=dbToGain(-reductionDb_);
-    return {in.l*gain,in.r*gain};
+    const Stereo compressed{in.l*gain,in.r*gain};
+    if(gold<1.e-7)
+        return compressed; // EXACT existing Furnace output when Gold is OFF.
+
+    // Small VCA coloration inferred from NoCompression capture:
+    // at -6dBFS, approximately -48dBc H2 and -54dBc H3.
+    // 6Hz DC servo removes the even-order polynomial's DC contribution.
+    auto color=[&](double v,double& dc) noexcept {
+        const double squared=v*v;
+        dc+=goldDcAlpha_*(squared-dc);
+        const double even=.015*(squared-dc);
+        const double odd=-.028*squared*v;
+        return v+gold*(even+odd);
+    };
+    return {color(compressed.l,goldSquareDC_.l),
+            color(compressed.r,goldSquareDC_.r)};
 }
 
 void ParametricEQ::prepare(double fs) noexcept {

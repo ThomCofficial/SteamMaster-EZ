@@ -63,6 +63,47 @@ void furnaceExtendedThreshold()
     std::printf("Furnace -15dB: %.3f GR, -30dB: %.3f GR\n",legacy,extended);
 }
 
+
+void furnaceGoldLab()
+{
+    Furnace approved,gold;
+    approved.prepare(48000.);gold.prepare(48000.);
+    FurnaceParameters p{};
+    p.common={true,1.};p.thresholdDb=-24.;p.ratio=FurnaceRatio::R4;
+    p.attack=FurnaceAttack::Ms30;p.release=FurnaceRelease::S0_1;
+    p.goldMode=false;approved.set(p);
+    p.goldMode=true;gold.set(p);
+    double squaredDifference=0.;
+    double leftGoldReduction=0.;
+    for(int i=0;i<96000;++i) {
+        const double x=.5*std::sin(2.*pi*997.*double(i)/48000.);
+        const Stereo input{x,x};
+        const auto original=approved.process(input);
+        const auto updated=gold.process(input);
+        require(std::isfinite(original.l)&&std::isfinite(updated.l),"Furnace GOLD produced nonfinite audio");
+        require(std::abs(updated.l)<2.,"Furnace GOLD unsafe output");
+        if(i>48000) {
+            squaredDifference+=(original.l-updated.l)*(original.l-updated.l);
+            leftGoldReduction=gold.gainReductionDb();
+        }
+    }
+    require(squaredDifference>1.e-6,"GSSL GOLD mode failed to produce a distinct response");
+    require(leftGoldReduction>0.5,"GSSL GOLD mode is not compressing");
+    Furnace legacy;
+    legacy.prepare(48000.);p.goldMode=false;legacy.set(p);
+    approved.reset();
+    approved.set(p);
+    double error=0.;
+    for(int i=0;i<48000;++i){
+        const double x=.2*std::sin(2.*pi*997.*double(i)/48000.);
+        const double diff=approved.process({x,x}).l-legacy.process({x,x}).l;
+        error+=diff*diff;
+    }
+    require(error<1.e-20,"GSSL GOLD disabled must retain original Furnace DSP exactly");
+    std::printf("Furnace GOLD experimental gain reduction %.2f dB; legacy output difference %.3g\n",
+                leftGoldReduction,error);
+}
+
 void shadowDualRelease(){
     Shadow sh;sh.prepare(48000);ShadowParameters p{};p.common={true,1.};
     p.opticalIn=false;p.discreteIn=true;p.discreteThresholdDb=-32.;
@@ -121,6 +162,7 @@ int main(){
     require(sslGR(FurnaceRatio::R4,-10.)>sslGR(FurnaceRatio::R2,-10.),
             "Furnace higher ratios must compress more at strong levels");
     furnaceExtendedThreshold();
+    furnaceGoldLab();
     shadowDualRelease();
     std::printf("Reference checks pass. Ocean COMP over10=%.2f over20=%.2f over30=%.2f, LIMIT over20=%.2f dB\n",comp10,comp20,comp30,limit20);
 }

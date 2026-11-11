@@ -8,7 +8,7 @@
 class SteamMasterProcessor final : public juce::AudioProcessor {
 public:
     SteamMasterProcessor();
-    const juce::String getName() const override {return "SteamMaster EZ";}
+    const juce::String getName() const override {return "SteamMaster EZ GSSL Lab";}
     void prepareToPlay(double sampleRate,int samplesPerBlock) override;
     void releaseResources() override {}
     void processBlock(juce::AudioBuffer<float>&,juce::MidiBuffer&) override;

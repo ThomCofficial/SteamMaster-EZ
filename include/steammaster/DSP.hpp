@@ -113,6 +113,8 @@ struct FurnaceParameters {
     FurnaceAttack attack = FurnaceAttack::Ms10;
     FurnaceRelease release = FurnaceRelease::S0_3;
     double scHpfHz = 0.0;
+    // Experimental NAM-informed GSSL Gold character; default remains the approved Furnace.
+    bool goldMode = false;
 };
 class Furnace final : public Module {
 public:
@@ -127,6 +129,9 @@ private:
     Smoother threshold_{};
     double envelope_ = 0.0, reductionDb_ = 0.0;
     double autoFast_ = 0.0, autoSlow_ = 0.0;
+    Smoother goldMix_{};
+    Stereo goldSquareDC_{};
+    double goldDcAlpha_ = 0.0;
 };
 
 struct EQBandParameters {

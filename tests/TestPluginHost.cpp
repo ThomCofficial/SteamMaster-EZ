@@ -95,6 +95,9 @@ int main(){
         if (value == nullptr || value->load() != 0.f)
             throw std::runtime_error(std::string("module should default bypassed: ") + id);
     }
+    if (auto* gold = p->state.getRawParameterValue("furnace_gold");
+        gold == nullptr || gold->load() != 0.f)
+        throw std::runtime_error("GSSL GOLD must default to approved Furnace sound");
     if (auto* global = p->state.getRawParameterValue("global_in");
         global == nullptr || global->load() != 1.f)
         throw std::runtime_error("global signal path must remain enabled");
