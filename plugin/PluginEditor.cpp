@@ -392,12 +392,19 @@ public:
         g.setColour(isActive ? tint : tint.withAlpha(0.42f));
         g.fillRoundedRectangle(juce::Rectangle<float>(9.f, 12.f, 3.f,
                                 float(getHeight() - 24)), 1.5f);
-        g.setColour(isActive ? aqua : juce::Colour(0xff465764));
-        g.fillEllipse(juce::Rectangle<float>(164.f, 14.f, 8.f, 8.f));
+        g.setColour(juce::Colours::black.withAlpha(.68f));
+        g.fillEllipse(juce::Rectangle<float>(163.f,13.f,10.f,10.f));
+        g.setColour(isActive?tint:juce::Colour(0xff465764));
+        g.fillEllipse(juce::Rectangle<float>(165.f,15.f,6.f,6.f));
+        if(isActive)
+        {
+            g.setColour(tint.withAlpha(.20f));
+            g.drawEllipse(juce::Rectangle<float>(161.f,11.f,14.f,14.f),1.8f);
+        }
         g.setColour(juce::Colour(0xfff0f4f5));
         g.setFont(juce::Font(juce::FontOptions(16.8f)));
         g.drawFittedText(title, 18, 9, 147, 25, juce::Justification::centredLeft, 1);
-        g.setColour(secondaryText);
+        g.setColour(secondaryText.brighter(.10f));
         g.setFont(juce::Font(juce::FontOptions(10.0f)));
         g.drawFittedText(description.toUpperCase(), 18, 34, 158, 16,
                          juce::Justification::centredLeft, 1);
@@ -600,8 +607,16 @@ SteamMasterEditor::~SteamMasterEditor()
 void SteamMasterEditor::drawMeter(juce::Graphics& g, juce::Rectangle<float> area,
                                  float peak, float held) const
 {
-    g.setColour(juce::Colour(0xff091720));
-    g.fillRoundedRectangle(area, 3.f);
+    // Bezel, recessed black glass and subtle illumination around the VU strip.
+    g.setColour(juce::Colours::black.withAlpha(.52f));
+    g.fillRoundedRectangle(area.expanded(2.f).translated(0.f,1.f),4.f);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff132a35),
+                                          area.getX(),area.getY(),
+                                          juce::Colour(0xff07121d),
+                                          area.getX(),area.getBottom(),false));
+    g.fillRoundedRectangle(area,3.f);
+    g.setColour(juce::Colour(0xff637c88).withAlpha(.42f));
+    g.drawRoundedRectangle(area.expanded(1.f),3.f,.9f);
     const auto asPosition = [](float amplitude)
     {
         const float dB = juce::Decibels::gainToDecibels(juce::jmax(0.000001f, amplitude));
@@ -612,10 +627,13 @@ void SteamMasterEditor::drawMeter(juce::Graphics& g, juce::Rectangle<float> area
     {
         auto fill = area.reduced(1.f);
         fill.setWidth((fill.getWidth() - 1.f) * fraction);
-        g.setGradientFill(juce::ColourGradient(aqua, fill.getX(), fill.getY(),
-                            fraction > 0.94f ? juce::Colour(0xffef8d67) : copper,
-                            fill.getRight(), fill.getBottom(), false));
-        g.fillRoundedRectangle(fill, 2.f);
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff3bcbaa),
+                            fill.getX(),fill.getY(),
+                            fraction>.94f?juce::Colour(0xfff2a072):juce::Colour(0xffe1bb83),
+                            fill.getRight(),fill.getBottom(),false));
+        g.fillRoundedRectangle(fill,2.f);
+        g.setColour(juce::Colours::white.withAlpha(.23f));
+        g.drawLine(fill.getX()+1.f,fill.getY()+1.f,fill.getRight()-1.f,fill.getY()+1.f,.7f);
     }
     for (const float dB : {-48.f, -24.f, -12.f, -6.f})
     {
@@ -636,23 +654,50 @@ void SteamMasterEditor::drawMeter(juce::Graphics& g, juce::Rectangle<float> area
 void SteamMasterEditor::paint(juce::Graphics& g)
 {
     const auto bounds = getLocalBounds().toFloat();
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff122230), 0.f, 0.f,
-                                          background, bounds.getRight(), bounds.getBottom(), false));
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff14232e),0.f,0.f,
+                                          background,bounds.getRight(),bounds.getBottom(),false));
     g.fillAll();
     juce::Graphics::ScopedSaveState state(g);
-    g.addTransform(juce::AffineTransform::scale(uiScale).translated(uiOffsetX, uiOffsetY));
-    g.setColour(copper);
-    g.fillRect(0, 0, designWidth, 3);
+    g.addTransform(juce::AffineTransform::scale(uiScale).translated(uiOffsetX,uiOffsetY));
 
-    g.setColour(juce::Colour(0xfff3f3ee));
+    // Fixed 1440-unit header: the complete hardware rack still scales together.
+    const auto header=juce::Rectangle<float>(2.f,2.f,float(designWidth-4),65.f);
+    g.setColour(juce::Colours::black.withAlpha(.36f));
+    g.fillRoundedRectangle(header.translated(0.f,2.f),8.f);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff344955),0.f,0.f,
+                                          juce::Colour(0xff101b27),0.f,68.f,false));
+    g.fillRoundedRectangle(header,8.f);
+    g.setColour(juce::Colour(0xffb89b75).withAlpha(.74f));
+    g.fillRect(4,2,designWidth-8,2);
+    g.setColour(juce::Colour(0xffa2b4ba).withAlpha(.23f));
+    g.drawRoundedRectangle(header.reduced(.6f),8.f,1.f);
+    g.setColour(juce::Colours::black.withAlpha(.30f));
+    g.drawLine(5.f,67.f,float(designWidth-5),67.f,1.1f);
+
+    // Engraved brand type, understated gold trim and turquoise edition name.
+    g.setColour(juce::Colours::black.withAlpha(.70f));
     g.setFont(juce::Font(juce::FontOptions(26.f)));
-    g.drawText("STEAMMASTER", 19, 11, 245, 35, juce::Justification::centredLeft);
+    g.drawText("STEAMMASTER",20,13,246,34,juce::Justification::centredLeft);
+    g.setColour(juce::Colour(0xfff1eee5));
+    g.drawText("STEAMMASTER",19,11,246,34,juce::Justification::centredLeft);
     g.setColour(aqua);
-    g.drawText("EZ", 261, 11, 55, 35, juce::Justification::centredLeft);
-    g.setColour(secondaryText);
+    g.setFont(juce::Font(juce::FontOptions(25.f)));
+    g.drawText("EZ",263,11,52,34,juce::Justification::centredLeft);
+    g.setColour(juce::Colour(0xffabbecc));
     g.setFont(juce::Font(juce::FontOptions(10.f)));
-    g.drawText("COMPACT MASTERING RACK  /  ALL MODULES VISIBLE", 22, 44, 500, 18,
+    g.drawText("PRECISION MASTERING  /  NATIVE DIGITAL EDITION",22,44,490,16,
                juce::Justification::centredLeft);
+    g.setColour(copper.withAlpha(.60f));
+    g.drawLine(320.f,17.f,320.f,51.f,.8f);
+    g.setColour(juce::Colour(0xff152530));
+    for(const float xScrew : {11.f,float(designWidth-11)})
+    {
+        g.fillEllipse(xScrew-2.8f,32.f,5.6f,5.6f);
+        g.setColour(juce::Colour(0xffa9a29a).withAlpha(.8f));
+        g.drawEllipse(xScrew-2.8f,32.f,5.6f,5.6f,.9f);
+        g.drawLine(xScrew-1.5f,35.f,xScrew+1.5f,34.f,.7f);
+        g.setColour(juce::Colour(0xff152530));
+    }
 
     const int x = designWidth - 485;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
