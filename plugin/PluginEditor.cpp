@@ -449,6 +449,14 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
     setLookAndFeel(skin.get());
     setOpaque(true);
     addAndMakeVisible(rackCanvas);
+    addAndMakeVisible(compareA);
+    addAndMakeVisible(compareB);
+    compareA.setTooltip("Compare A: recall the stored A settings.");
+    compareB.setTooltip("Compare B: recall the stored B settings.");
+    compareA.onClick = [this] { switchComparison(0); };
+    compareB.onClick = [this] { switchComparison(1); };
+    for (auto* param : processor.getParameters()) compareState[0].push_back(param->getValue());
+    compareValid[0] = true;
 
     const auto addModule = [&](const char* title, const char* tagline,
                                std::initializer_list<const char*> parts)
@@ -609,6 +617,31 @@ void SteamMasterEditor::timerCallback()
     repaint(meters.toNearestInt());
 }
 
+void SteamMasterEditor::switchComparison(int target)
+{
+    if (target < 0 || target > 1 || target == currentComparison) return;
+    const auto& parameters = processor.getParameters();
+    auto& current = compareState[size_t(currentComparison)];
+    current.clear();
+    current.reserve(size_t(parameters.size()));
+    for (auto* parameter : parameters) current.push_back(parameter->getValue());
+    compareValid[size_t(currentComparison)] = true;
+    if (!compareValid[size_t(target)])
+    {
+        compareState[size_t(target)] = current;
+        compareValid[size_t(target)] = true;
+    }
+    else
+    {
+        const auto& snapshot = compareState[size_t(target)];
+        if (snapshot.size() == size_t(parameters.size()))
+            for (int i = 0; i < parameters.size(); ++i)
+                parameters[i]->setValueNotifyingHost(snapshot[size_t(i)]);
+    }
+    currentComparison = target;
+    resized();
+}
+
 void SteamMasterEditor::resized()
 {
     if (designHeight <= 0) return;
@@ -624,5 +657,15 @@ void SteamMasterEditor::resized()
     // No scrollbars, no responsive reflow, no per-knob repositioning.
     rackCanvas.setTransform(juce::AffineTransform::scale(uiScale)
                                 .translated(uiOffsetX, uiOffsetY));
+    const auto scaled = juce::AffineTransform::scale(uiScale)
+                            .translated(uiOffsetX, uiOffsetY);
+    compareA.setBounds(juce::Rectangle<float>(635.f, 18.f, 54.f, 31.f)
+                           .transformedBy(scaled).getSmallestIntegerContainer());
+    compareB.setBounds(juce::Rectangle<float>(694.f, 18.f, 54.f, 31.f)
+                           .transformedBy(scaled).getSmallestIntegerContainer());
+    compareA.setColour(juce::TextButton::buttonColourId,
+                       currentComparison == 0 ? juce::Colour(0xff185b59) : juce::Colour(0xff263a49));
+    compareB.setColour(juce::TextButton::buttonColourId,
+                       currentComparison == 1 ? juce::Colour(0xff185b59) : juce::Colour(0xff263a49));
     repaint();
 }

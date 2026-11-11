@@ -19,6 +19,7 @@ private:
     class ModulePanel;
     void timerCallback() override;
     void drawMeter(juce::Graphics&, juce::Rectangle<float>, float, float) const;
+    void switchComparison(int target);
 
     SteamMasterProcessor& processor;
     std::unique_ptr<juce::LookAndFeel_V4> skin;
@@ -35,6 +36,10 @@ private:
     std::array<float, 4> meterLevel{};
     std::array<float, 4> meterPeakHold{};
     std::array<int, 4> holdTicks{};
+    juce::TextButton compareA{"A"}, compareB{"B"};
+    std::array<std::vector<float>, 2> compareState;
+    std::array<bool, 2> compareValid{false, false};
+    int currentComparison = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SteamMasterEditor)
 };
