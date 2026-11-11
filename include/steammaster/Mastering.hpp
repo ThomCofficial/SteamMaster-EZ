@@ -118,6 +118,24 @@ public:
 private:
     static constexpr std::size_t kCapacity=4096;
     std::array<Stereo,kCapacity> audioBuffer_{}, dryBuffer_{}, peakBuffer_{}, postBuffer_{}, postGainHistory_{};
+    // Bounded, allocation-free future-aware gain envelope.
+    // A monotonic minimum hold plus finite moving average spreads attenuation
+    // *before* an arriving peak rather than stepping down on one sample.
+    // Maximum 5ms at 384kHz = 1920 samples, below the 2048-slot capacity.
+    struct GainCurve {
+        static constexpr std::size_t kWindow=2048;
+        std::array<double,kWindow> minimumValues{}, prefixSums{};
+        std::array<std::uint64_t,kWindow> minimumIndices{};
+        std::uint64_t cursor=0, head=0, tail=0;
+        double total=0.;
+        void reset() noexcept;
+        double process(double requested, std::size_t hold, std::size_t smooth) noexcept;
+    };
+    std::array<GainCurve,2> mainCurve_{}, postCurve_{};
+    Stereo gainEnvelope_{1.,1.}, quickEnvelope_{1.,1.}, slowEnvelope_{1.,1.};
+    std::array<std::size_t,2> quickHold_{}, slowHold_{};
+    double shortEnergy_=0., longEnergy_=0., lowEnergy_=0.;
+    Stereo lowpass_{};
     std::size_t audioCursor_=0, peakCursor_=0, postCursor_=0, audioLatency_=0, postLatency_=0;
     FIRHalfBand2x detector2x_{}, detector4x_{}, detector8x_{}, post2x_{}, post4x_{}, post8x_{}, meter2x_{}, meter4x_{}, meter8x_{};
     Smoother inputGain_{}, ceiling_{}, bypass_{}, lookahead_{}, link_{}, postMix_{};

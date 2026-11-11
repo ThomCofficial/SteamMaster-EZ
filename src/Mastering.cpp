@@ -210,6 +210,43 @@ double GlobalStereo::correlation() const noexcept {
     return clamp(crossPower_/denom,-1.,1.);
 }
 
+// Moving minimum plus finite attack smoothing. The detector is deliberately
+// ahead of the corresponding delayed audio; this curve makes gain transitions
+// progressively rather than instantly. All storage is static/preallocated.
+void MasterLimiter::GainCurve::reset() noexcept {
+    minimumValues.fill(1.);
+    prefixSums.fill(0.);
+    minimumIndices.fill(0);
+    cursor=head=tail=0;
+    total=0.;
+}
+double MasterLimiter::GainCurve::process(double requested, std::size_t hold,
+                                         std::size_t smooth) noexcept {
+    constexpr auto cap=kWindow;
+    hold=std::max(std::size_t(1),std::min(hold,cap-1));
+    smooth=std::max(std::size_t(1),std::min(smooth,cap-1));
+    requested=clamp(requested,0.,1.);
+
+    // Amortized O(1) monotonic minimum of the last 'hold' requests.
+    while(head<tail && minimumValues[(tail-1)%cap]>=requested) --tail;
+    minimumValues[tail%cap]=requested;
+    minimumIndices[tail%cap]=cursor;
+    ++tail;
+    while(head<tail && minimumIndices[head%cap]+hold<=cursor) ++head;
+    const double held=minimumValues[head%cap];
+
+    // Prefix sum of attenuation (negative), so a variable-length moving
+    // average costs O(1) even when lookahead changes via host automation.
+    // Pre-history is unity gain, not zero.  The window is never longer than
+    // the statically allocated ring; no audio-thread allocations.
+    total+=held-1.;
+    const double previous=cursor>=smooth?prefixSums[(cursor-smooth)%cap]:0.;
+    const double gain=1.+(total-previous)/double(smooth);
+    prefixSums[cursor%cap]=total;
+    ++cursor;
+    return clamp(gain,0.,1.);
+}
+
 void MasterLimiter::prepare(double sampleRate) noexcept {
     fs_=clamp(sampleRate,8000.,384000.);
     fastRise_=smoothCoef(fs_,.008);fastFall_=smoothCoef(fs_,.080);
@@ -243,6 +280,11 @@ void MasterLimiter::reset() noexcept {
     postGainHistory_.fill({1.,1.});
     audioCursor_=peakCursor_=postCursor_=0;gain_={1.,1.};postGain_={1.,1.};reductionDb_={};prePostEffectiveGain_={1.,1.};outputTruePeak_=0.;
     emergencyGain_=1.;
+    for(auto& curve: mainCurve_) curve.reset();
+    for(auto& curve: postCurve_) curve.reset();
+    gainEnvelope_={1.,1.};quickEnvelope_={1.,1.};slowEnvelope_={1.,1.};
+    quickHold_.fill(0);slowHold_.fill(0);
+    shortEnergy_=longEnergy_=lowEnergy_=0.;lowpass_={};
     releaseHold_.fill(0);postHold_.fill(0);safetyClipEvents_=0;
     fastDemandDb_=sustainedDemandDb_=effectiveReleaseMs_={};
     detector2x_.reset();detector4x_.reset();detector8x_.reset();
@@ -293,6 +335,14 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
     const Stereo requested{std::min(1.,target/std::max(kSmall,l)),
                            std::min(1.,target/std::max(kSmall,r))};
     const std::size_t ahead=postLatency_-35u;
+    const double attackFraction=mode_==LimiterMode::Clean?.88:
+                                (mode_==LimiterMode::Punch?.30:.60);
+    const std::size_t fade=std::max(std::size_t(1),
+                      static_cast<std::size_t>(std::round(double(ahead)*attackFraction)));
+    const Stereo softRequest{
+        postCurve_[0].process(requested.l,ahead,fade),
+        postCurve_[1].process(requested.r,ahead,fade)
+    };
     // Distinct post-TP recovery behaviour (all share the same 8x peak ceiling):
     // Clean protects low-frequency waveforms, Punch recovers transients faster,
     // Modern increases release time as sustained limiting becomes denser.
@@ -308,8 +358,8 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
         else { gain=needed+release*(gain-needed); }
         gain=clamp(gain,0.,1.);
     };
-    follow(requested.l,postGain_.l,postHold_[0]);
-    follow(requested.r,postGain_.r,postHold_[1]);
+    follow(softRequest.l,postGain_.l,postHold_[0]);
+    follow(softRequest.r,postGain_.r,postHold_[1]);
     postBuffer_[postCursor_]=input;
     postGainHistory_[postCursor_]=prePostEffectiveGain_;
     const auto read=(postCursor_+kCapacity-(postLatency_%kCapacity))%kCapacity;
@@ -345,6 +395,19 @@ Stereo MasterLimiter::measureOutput(Stereo output) noexcept {
 Stereo MasterLimiter::process(Stereo input) noexcept {
     const double pre=inputGain_.next();
     const Stereo driven{sanitized(input.l*pre),sanitized(input.r*pre)};
+    // Short/long detector energy estimates provide program context and
+    // a low-frequency awareness cue for more natural recovery.
+    const double power=.5*(driven.l*driven.l+driven.r*driven.r);
+    const double shortC=smoothCoef(fs_,.008),longC=smoothCoef(fs_,.180);
+    shortEnergy_=power+(shortEnergy_-power)*shortC;
+    longEnergy_=power+(longEnergy_-power)*longC;
+    const double lfCoefficient=1.-std::exp(-2.*3.141592653589793*110./fs_);
+    lowpass_.l+=lfCoefficient*(driven.l-lowpass_.l);
+    lowpass_.r+=lfCoefficient*(driven.r-lowpass_.r);
+    const double lfPower=.5*(lowpass_.l*lowpass_.l+lowpass_.r*lowpass_.r);
+    lowEnergy_=lfPower+(lowEnergy_-lfPower)*longC;
+    const double energyPersistence=clamp(longEnergy_/std::max(kSmall,shortEnergy_),0.,1.);
+    const double bassShare=clamp(lowEnergy_/std::max(kSmall,longEnergy_),0.,1.);
     const auto tp=getPeak(driven);
     peakBuffer_[peakCursor_]=tp;
     // The 8x FIR reconstruction detector has an inherent 35 host-sample delay.
@@ -362,10 +425,26 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     const Stereo p=truePeak_?detector:Stereo{std::abs(raw.l),std::abs(raw.r)};
     const double ceiling=std::min(ceilingHard_,ceiling_.next());
     const double linked=std::max(p.l,p.r);
-    const double weight=forceLinked_?1.:link_.next();
+    // Clean prioritizes stereo image stability. Punch follows the user link
+    // preference; Modern keeps substantial linking under dense material.
+    const double rawLink=forceLinked_?1.:link_.next();
+    const double weight=mode_==LimiterMode::Clean?std::max(.88,rawLink):
+                        (mode_==LimiterMode::Modern?
+                         std::max(rawLink,.45+.40*energyPersistence):rawLink);
     const double pl=p.l+(linked-p.l)*weight,pr=p.r+(linked-p.r)*weight;
     const double wantL=std::min(1.,ceiling/std::max(kSmall,pl));
     const double wantR=std::min(1.,ceiling/std::max(kSmall,pr));
+    // Peak anticipation: each mode has its own finite attack contour, but
+    // every contour finishes before the corresponding delayed audio arrives.
+    const double attackPortion=mode_==LimiterMode::Clean?.90:
+                               (mode_==LimiterMode::Punch?.28:
+                                .48+.20*energyPersistence);
+    const auto fade=std::max(std::size_t(1),
+                            static_cast<std::size_t>(std::round(userAhead*attackPortion)));
+    const Stereo shaped{
+        mainCurve_[0].process(wantL,userAhead,fade),
+        mainCurve_[1].process(wantR,userAhead,fade)
+    };
     // Two independent demand memories distinguish isolated peaks from dense
     // sustained limiting. AUTO release responds to *duration and depth of
     // gain reduction*, not merely the instantaneous input amplitude.
@@ -381,15 +460,16 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     const double sustainL=updateDemand(wantL,fastDemandDb_.l,sustainedDemandDb_.l);
     const double sustainR=updateDemand(wantR,fastDemandDb_.r,sustainedDemandDb_.r);
     const auto releaseTime=[&](double persistence) noexcept {
-        const double base=autoRelease_ ? 85.+630.*persistence : releaseMs_;
-        // The sound of all three modes is driven by distinct detector recovery
-        // curves, not harmonic clipping or fake saturation.
-        // Clean: longer smooth recovery for natural tails / stereo cohesion.
-        // Punch: quick transient recovery to retain impact between hits.
-        // Modern: adaptive two-time-constant behaviour for dense material.
-        const double factor=mode_==LimiterMode::Clean?1.08:
-                             mode_==LimiterMode::Punch?.55+.15*persistence:
-                             .76+.29*persistence;
+        const double combined=.6*persistence+.4*energyPersistence;
+        const double base=autoRelease_ ? 80.+520.*combined : releaseMs_;
+        // Clean: slow, bass-aware recovery to preserve tone and stereo stability.
+        // Punch: brief hold / quick recovery for transient impact.
+        // Modern: genuinely program-dependent recovery with two energy memories.
+        const double factor=mode_==LimiterMode::Clean?
+                                (1.22+.23*bassShare):
+                             mode_==LimiterMode::Punch?
+                                (.53+.12*combined):
+                                (.62+.63*combined);
         return clamp(base*factor,10.,1800.);
     };
     const double releaseL=releaseTime(sustainL),releaseR=releaseTime(sustainR);
@@ -407,8 +487,8 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
             current=requested+c*(current-requested);
         }
     };
-    track(wantL,gain_.l,releaseHold_[0],releaseL);
-    track(wantR,gain_.r,releaseHold_[1],releaseR);
+    track(shaped.l,gain_.l,releaseHold_[0],releaseL);
+    track(shaped.r,gain_.r,releaseHold_[1],releaseR);
     gain_.l=clamp(gain_.l,0.,1.);gain_.r=clamp(gain_.r,0.,1.);
     audioBuffer_[audioCursor_]=driven;
     dryBuffer_[audioCursor_]=input;

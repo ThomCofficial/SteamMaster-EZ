@@ -1,5 +1,21 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
+## EZ v1.5 — Three predictive limiter designs (experimental)
+
+The previous three modes shared almost the same peak-gain envelope, differing primarily in release rate. They now use **separate predictive gain contours** and distinct musical priorities, without any additional UI controls:
+
+- **Clean** — long, gently averaged gain attacks over the available lookahead; stereo-image cohesion; slower, bass-aware release. Designed for natural dynamics, vocals, acoustic and orchestral mixes.
+- **Punch** — shorter, quicker anticipatory gain ramps and brief recovery to preserve drum articulation and transient separation. Still uses 8x reconstructed-peak protection.
+- **Modern** — changing lookahead attack contour, automatic time constants driven by short/long energy density, and dynamically linked stereo gain. Intended for dense electronic, pop and energetic mastering.
+
+The new engine applies a bounded monotonic-window minimum and efficient moving-average gain envelopes. No allocations occur in the audio callback. The independent 8x true-peak correction stage also uses pre-ramped gain rather than instantaneous attenuation.
+
+All three retain the same host-visible parameters, processing order, plugin identity, reported latency and existing presets. The previous stable version is backed up at `backup/ez-v1.4-limiter-safe`.
+
+**Validation:** The automated tests cover 8x peak ceiling under severe drive, mode separation, release behavior and low-frequency distortion diagnostics. These checks establish basic DSP correctness—not professional subjective quality, nor a promise of a specific loudness without audible compromise.
+
+
+
 ## EZ v1.4 - Furnace threshold and limiter tuning
 
 - Furnace threshold expanded from **-15..+15 dB** to **-36..+15 dB**. Existing physical threshold settings remain unchanged, and the compressor can now reach sensible gain reduction on moderate-level mixes. The 2:1/4:1/10:1 ratios, attack/release and broad 2:1 knee are preserved.

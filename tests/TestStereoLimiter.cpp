@@ -171,6 +171,53 @@ void heavyDriveLimiterStress(double fs)
     }
 }
 
+
+// Repeatable sine-wave distortion benchmark: objective numbers complement
+// rather than replace actual listening on acoustic, rock and dense mixes.
+void limiterDistortionBench()
+{
+    constexpr double fs=48000., hz=60.;
+    constexpr int begin=24000, end=48000;
+    for(int mode=0;mode<3;++mode)
+    {
+        auto limiter=std::make_unique<MasterLimiter>();
+        limiter->prepare(fs);
+        LimiterParameters p;
+        p.mode=static_cast<LimiterMode>(mode);
+        p.thresholdDb=-12.;
+        p.ceilingDbTP=-1.;
+        p.lookaheadMs=5.;
+        p.autoRelease=true;
+        p.truePeak=true;
+        limiter->set(p);
+        double s2=0.,c2=0.,power=0.,gain=0.;
+        for(int i=0;i<end;++i)
+        {
+            const double phase=2.*kPi*hz*double(i)/fs;
+            const double input=.60*std::sin(phase);
+            const auto out=limiter->process({input,input});
+            expect(std::isfinite(out.l)&&std::isfinite(out.r),"Sine limiter returned invalid sample");
+            if(i>=begin)
+            {
+                s2+=out.l*std::sin(phase);
+                c2+=out.l*std::cos(phase);
+                power+=out.l*out.l;
+                gain+=limiter->gainReductionDb().l;
+            }
+        }
+        const double n=double(end-begin);
+        const double fundamental=2.*(s2*s2+c2*c2)/n;
+        const double residual=std::max(0.,power-fundamental);
+        const double thdn=std::sqrt(residual/std::max(1.e-12,fundamental));
+        const double averageGR=gain/n;
+        std::cout<<"Limiter mode "<<mode<<" 60Hz THD+N proxy "
+                 <<20.*std::log10(std::max(1.e-12,thdn))
+                 <<" dB, mean GR "<<averageGR<<" dB\n";
+        expect(std::isfinite(thdn)&&averageGR>1.,
+               "Limiter low frequency bench became nonfunctional");
+    }
+}
+
 void truePeakTests(double fs){
     for(int mode=0;mode<3;++mode){
         MasterLimiter lim;lim.prepare(fs);
@@ -197,6 +244,7 @@ void truePeakTests(double fs){
 int main(){try{
     for(double fs:{44100.,48000.,96000.,192000.})stereoTests(fs);
     modeAudioDistinction();
+    limiterDistortionBench();
     for(double fs:{48000.,96000.}){limiterModeTests(fs);truePeakTests(fs);heavyDriveLimiterStress(fs);}
     std::cout<<"PASS Stereo/Limiter "<<assertions<<" assertions\n";
     return 0;
