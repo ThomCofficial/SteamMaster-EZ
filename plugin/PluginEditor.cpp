@@ -4,12 +4,12 @@
 
 namespace
 {
-constexpr auto background = juce::Colour(0xff0a1019);
-constexpr auto panelDark = juce::Colour(0xff111d2a);
-constexpr auto panelLight = juce::Colour(0xff1c2b3a);
-constexpr auto copper = juce::Colour(0xffd4a76f);
-constexpr auto aqua = juce::Colour(0xff66d9c6);
-constexpr auto secondaryText = juce::Colour(0xff8fa6b7);
+const auto background = juce::Colour(0xff0a1019);
+const auto panelDark = juce::Colour(0xff111d2a);
+const auto panelLight = juce::Colour(0xff1c2b3a);
+const auto copper = juce::Colour(0xffd4a76f);
+const auto aqua = juce::Colour(0xff66d9c6);
+const auto secondaryText = juce::Colour(0xff8fa6b7);
 
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
