@@ -266,7 +266,7 @@ void Furnace::prepare(double fs) noexcept {
     Module::prepare(fs);sc_.prepare(fs);threshold_.prepare(fs,.012);threshold_.reset(p_.thresholdDb);set(p_);reset();
 }
 void Furnace::set(const FurnaceParameters& p) noexcept {
-    p_=p;p_.thresholdDb=clamp(p.thresholdDb,-15.,15.);
+    p_=p;p_.thresholdDb=clamp(p.thresholdDb,-36.,15.);
     sc_.setFrequency(p.scHpfHz);threshold_.set(p_.thresholdDb);setCommon(p.common);
 }
 void Furnace::reset() noexcept {envelope_=reductionDb_=autoFast_=autoSlow_=0.;sc_.reset();}

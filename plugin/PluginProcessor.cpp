@@ -18,7 +18,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SteamMasterProcessor::makeLa
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"ocean_sc_hpf",1},"Ocean / SC HPF",juce::StringArray{"Off","40","80","160","320","500"},0));
     layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"furnace_in",1},"Furnace / IN",false));
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"furnace_mix",1},"Furnace / Mix",juce::NormalisableRange<float>(0.0f,100.0f,0.001f),100.0f));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"furnace_threshold_db",1},"Furnace / Threshold dB",juce::NormalisableRange<float>(-15.0f,15.0f,0.001f),0.0f));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{"furnace_threshold_db",1},"Furnace / Threshold dB",juce::NormalisableRange<float>(-36.0f,15.0f,0.001f),0.0f));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"furnace_ratio",1},"Furnace / Ratio",juce::StringArray{"2","4","10"},1));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"furnace_attack",1},"Furnace / Attack",juce::StringArray{"0.1","0.3","1","3","10","30"},4));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"furnace_release",1},"Furnace / Release",juce::StringArray{"0.1","0.3","0.6","1.2","Auto"},1));

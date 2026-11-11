@@ -1,5 +1,14 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
+## EZ v1.4 - Furnace threshold and limiter tuning
+
+- Furnace threshold expanded from **-15..+15 dB** to **-36..+15 dB**. Existing physical threshold settings remain unchanged, and the compressor can now reach sensible gain reduction on moderate-level mixes. The 2:1/4:1/10:1 ratios, attack/release and broad 2:1 knee are preserved.
+- Three existing limiter personalities are deliberately differentiated without saturation or spectral excitement: **Clean** has the gentlest, longest recovery; **Punch** recovers from hits faster; **Modern** adapts to transient density and sustained level.
+- Replaced the limiter's last-resort channel-by-channel hard clamp with **stereo-linked emergency gain** and smooth recovery, while retaining 8x true-peak protection and safety telemetry.
+- Added automated extended-threshold and heavily-driven 8x true-peak tests. Test validation checks technical safety, not subjective sound quality, which still needs critical listening in Cubase.
+- The working previous UI and DSP revision is protected at \`backup/ez-v1.3-before-dsp-tuning\`; no UI re-layout.
+
+
 ## Native rack polish (EZ v1.3)
 
 - Larger controls, taller rack units, more visible grouped knobs and a fit-to-rack aspect ratio.

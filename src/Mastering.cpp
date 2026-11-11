@@ -242,6 +242,7 @@ void MasterLimiter::reset() noexcept {
     audioBuffer_.fill({});dryBuffer_.fill({});peakBuffer_.fill({});postBuffer_.fill({});
     postGainHistory_.fill({1.,1.});
     audioCursor_=peakCursor_=postCursor_=0;gain_={1.,1.};postGain_={1.,1.};reductionDb_={};prePostEffectiveGain_={1.,1.};outputTruePeak_=0.;
+    emergencyGain_=1.;
     releaseHold_.fill(0);postHold_.fill(0);safetyClipEvents_=0;
     fastDemandDb_=sustainedDemandDb_=effectiveReleaseMs_={};
     detector2x_.reset();detector4x_.reset();detector8x_.reset();
@@ -292,7 +293,15 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
     const Stereo requested{std::min(1.,target/std::max(kSmall,l)),
                            std::min(1.,target/std::max(kSmall,r))};
     const std::size_t ahead=postLatency_-35u;
-    const double release=smoothCoef(fs_,.045);
+    // Distinct post-TP recovery behaviour (all share the same 8x peak ceiling):
+    // Clean protects low-frequency waveforms, Punch recovers transients faster,
+    // Modern increases release time as sustained limiting becomes denser.
+    const double persistence=clamp(
+        std::max(sustainedDemandDb_.l,sustainedDemandDb_.r)/12.,0.,1.);
+    const double recoverySeconds=mode_==LimiterMode::Clean ? .115+.085*persistence :
+                                 mode_==LimiterMode::Punch ? .065+.025*persistence :
+                                 .080+.125*persistence;
+    const double release=smoothCoef(fs_,recoverySeconds);
     auto follow=[&](double needed,double& gain,std::size_t& hold) noexcept {
         if(needed<gain){ gain=needed;hold=ahead; }
         else if(hold>0){ --hold; }
@@ -372,12 +381,15 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     const double sustainL=updateDemand(wantL,fastDemandDb_.l,sustainedDemandDb_.l);
     const double sustainR=updateDemand(wantR,fastDemandDb_.r,sustainedDemandDb_.r);
     const auto releaseTime=[&](double persistence) noexcept {
-        const double base=autoRelease_ ? 60.+550.*persistence : releaseMs_;
-        // Clean: conservative smooth release; Punch: rapid gain recovery
-        // after isolated peaks; Modern: adaptive short transients with
-        // deliberately slower recovery on dense passages.
-        const double factor=mode_==LimiterMode::Punch?.70:
-                            (mode_==LimiterMode::Modern?.72+.38*persistence:1.);
+        const double base=autoRelease_ ? 85.+630.*persistence : releaseMs_;
+        // The sound of all three modes is driven by distinct detector recovery
+        // curves, not harmonic clipping or fake saturation.
+        // Clean: longer smooth recovery for natural tails / stereo cohesion.
+        // Punch: quick transient recovery to retain impact between hits.
+        // Modern: adaptive two-time-constant behaviour for dense material.
+        const double factor=mode_==LimiterMode::Clean?1.08:
+                             mode_==LimiterMode::Punch?.55+.15*persistence:
+                             .76+.29*persistence;
         return clamp(base*factor,10.,1800.);
     };
     const double releaseL=releaseTime(sustainL),releaseR=releaseTime(sustainR);
@@ -406,10 +418,21 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     const double en=bypass_.next();
     prePostEffectiveGain_={1.-en+en*gain_.l,1.-en+en*gain_.r};
     Stereo wet{delayed.l*gain_.l,delayed.r*gain_.r};
-    // Last-resort sample-domain guard: count every intervention so clipping
-    // cannot masquerade as successful transparent gain reduction. Not TP proof.
-    if (std::abs(wet.l)>ceiling || std::abs(wet.r)>ceiling) ++safetyClipEvents_;
-    wet.l=clamp(wet.l,-ceiling,ceiling);wet.r=clamp(wet.r,-ceiling,ceiling);
+    // Linked emergency *gain* control rather than flattening each channel
+    // independently at the sample ceiling. This preserves stereo proportions
+    // and avoids hard-clipping harmonics if a fast peak evades the detector.
+    // The 8x post-TP stage still provides the main reconstructed-peak guard.
+    const double peak=std::max(std::abs(wet.l),std::abs(wet.r));
+    const double need=std::min(1.,ceiling/std::max(kSmall,peak));
+    if(need<1.) ++safetyClipEvents_; // Telemetry: detector headroom still matters.
+    if(need<emergencyGain_) emergencyGain_=need;
+    else {
+        const double recovery=mode_==LimiterMode::Punch?.075:
+                              (mode_==LimiterMode::Modern?.120:.180);
+        const double c=smoothCoef(fs_,recovery);
+        emergencyGain_=need+c*(emergencyGain_-need);
+    }
+    wet.l*=emergencyGain_;wet.r*=emergencyGain_;
     const auto out=blend(dry,wet,en);
     if(++audioCursor_==kCapacity)audioCursor_=0;
     if(++peakCursor_==kCapacity)peakCursor_=0;

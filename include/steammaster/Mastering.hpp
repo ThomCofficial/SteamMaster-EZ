@@ -126,6 +126,8 @@ private:
     std::array<std::size_t,2> releaseHold_{}, postHold_{};
     std::uint64_t safetyClipEvents_=0;
     double fs_=48000.0, outputTruePeak_=0.0, ceilingHard_=1.0;
+    // Linked transient safety envelope. Reduces emergency sample clipping.
+    double emergencyGain_=1.0;
     double fastRise_=0.,fastFall_=0.,sustainRise_=0.,sustainFall_=0.,releaseScale_=0.;
     bool truePeak_=true, autoRelease_=false, forceLinked_=false;
     LimiterMode mode_=LimiterMode::Clean;

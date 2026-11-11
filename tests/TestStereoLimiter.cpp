@@ -127,6 +127,50 @@ void modeAudioDistinction() {
     std::cout<<"Mode waveform mean absolute deltas Clean/Punch="<<cleanVsPunch
              <<", Clean/Modern="<<cleanVsModern<<"\n";
 }
+
+void heavyDriveLimiterStress(double fs)
+{
+    // Real mastering abuse: changing crest factors, loud HF stereo differences
+    // and 8x reconstructed peaks at both standard sample rates.
+    for (int mode = 0; mode < 3; ++mode)
+    {
+        auto limiter=std::make_unique<MasterLimiter>();
+        limiter->prepare(fs);
+        LimiterParameters p;
+        p.in=true;
+        p.mode=static_cast<LimiterMode>(mode);
+        p.thresholdDb=-20.;
+        p.ceilingDbTP=-1.;
+        p.lookaheadMs=5.;
+        p.stereoLink=1.;
+        p.truePeak=true;
+        p.autoRelease=true;
+        limiter->set(p);
+        Ref8x reference;
+        double measured=0.;
+        std::size_t nonfinite=0;
+        for (int i=0;i<static_cast<int>(fs*.12);++i)
+        {
+            const double t=static_cast<double>(i)/fs;
+            const double envelope=(i%int(fs*.018)<int(fs*.0015)) ? 2.3 : 1.;
+            const double l=envelope*(.43*std::sin(2*kPi*47.*t)+
+                                      .34*std::sin(2*kPi*997.*t)+
+                                      .37*std::sin(2*kPi*12371.*t));
+            const double r=envelope*(.41*std::sin(2*kPi*53.*t+.3)+
+                                      .28*std::sin(2*kPi*1931.*t)+
+                                      .38*std::sin(2*kPi*14323.*t));
+            const auto output=limiter->process({l,r});
+            if(!std::isfinite(output.l)||!std::isfinite(output.r))++nonfinite;
+            measured=std::max(measured,reference.process(output));
+        }
+        expect(nonfinite==0,"Heavy limiting emitted nonfinite samples");
+        const double dBTP=gainToDb(measured);
+        std::cout<<"heavy drive "<<fs<<"Hz mode "<<mode
+                 <<" measured "<<dBTP<<"dBTP emergency "<<limiter->safetyClipEvents()<<"\n";
+        expect(dBTP<=-.9,"Heavy limiting violated true peak ceiling");
+    }
+}
+
 void truePeakTests(double fs){
     for(int mode=0;mode<3;++mode){
         MasterLimiter lim;lim.prepare(fs);
@@ -153,7 +197,7 @@ void truePeakTests(double fs){
 int main(){try{
     for(double fs:{44100.,48000.,96000.,192000.})stereoTests(fs);
     modeAudioDistinction();
-    for(double fs:{48000.,96000.}){limiterModeTests(fs);truePeakTests(fs);}
+    for(double fs:{48000.,96000.}){limiterModeTests(fs);truePeakTests(fs);heavyDriveLimiterStress(fs);}
     std::cout<<"PASS Stereo/Limiter "<<assertions<<" assertions\n";
     return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL after "<<assertions<<": "<<e.what()<<"\n";return 1;}}

@@ -33,6 +33,36 @@ double sslGR(FurnaceRatio ratio,double levelDb){
         require(std::isfinite(y.l)&&std::isfinite(y.r),"Furnace nonfinite");}
     return f.gainReductionDb();
 }
+
+void furnaceExtendedThreshold()
+{
+    Furnace furnace;
+    furnace.prepare(48000.);
+    FurnaceParameters p{};
+    p.common={true,1.};
+    p.ratio=FurnaceRatio::R4;
+    p.attack=FurnaceAttack::Ms1;
+    p.release=FurnaceRelease::S0_1;
+    const auto reductionAt = [&](double threshold)
+    {
+        furnace.reset();
+        p.thresholdDb=threshold;
+        furnace.set(p);
+        for (int i=0;i<96000;++i)
+        {
+            const double x=.12*std::sin(2.*pi*1000.*double(i)/48000.);
+            const auto y=furnace.process({x,x});
+            require(std::isfinite(y.l)&&std::isfinite(y.r),"Furnace nonfinite extended threshold");
+        }
+        return furnace.gainReductionDb();
+    };
+    const double legacy=reductionAt(-15.);
+    const double extended=reductionAt(-30.);
+    require(extended>legacy+3.,"Furnace -30dB threshold must provide more usable GR");
+    require(extended>3.,"Furnace must compress -18dBFS-level material");
+    std::printf("Furnace -15dB: %.3f GR, -30dB: %.3f GR\n",legacy,extended);
+}
+
 void shadowDualRelease(){
     Shadow sh;sh.prepare(48000);ShadowParameters p{};p.common={true,1.};
     p.opticalIn=false;p.discreteIn=true;p.discreteThresholdDb=-32.;
@@ -90,6 +120,7 @@ int main(){
             "Furnace low-ratio soft knee must begin earlier than high ratios");
     require(sslGR(FurnaceRatio::R4,-10.)>sslGR(FurnaceRatio::R2,-10.),
             "Furnace higher ratios must compress more at strong levels");
+    furnaceExtendedThreshold();
     shadowDualRelease();
     std::printf("Reference checks pass. Ocean COMP over10=%.2f over20=%.2f over30=%.2f, LIMIT over20=%.2f dB\n",comp10,comp20,comp30,limit20);
 }

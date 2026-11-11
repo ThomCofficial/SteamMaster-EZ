@@ -108,7 +108,7 @@ enum class FurnaceAttack { Ms0_1, Ms0_3, Ms1, Ms3, Ms10, Ms30 };
 enum class FurnaceRelease { S0_1, S0_3, S0_6, S1_2, Auto };
 struct FurnaceParameters {
     CommonControls common{};
-    double thresholdDb = 0.0; // Approved -15..+15 dB
+    double thresholdDb = 0.0; // EZ expanded to -36..+15 dB for quieter mixes.
     FurnaceRatio ratio = FurnaceRatio::R4;
     FurnaceAttack attack = FurnaceAttack::Ms10;
     FurnaceRelease release = FurnaceRelease::S0_3;
