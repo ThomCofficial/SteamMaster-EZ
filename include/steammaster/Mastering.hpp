@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace steammaster {
 
@@ -131,7 +132,8 @@ private:
         void reset() noexcept;
         double process(double requested, std::size_t hold, std::size_t smooth) noexcept;
     };
-    std::array<GainCurve,2> mainCurve_{}, postCurve_{};
+    std::unique_ptr<std::array<GainCurve,2>> mainCurve_{std::make_unique<std::array<GainCurve,2>>()};
+    std::unique_ptr<std::array<GainCurve,2>> postCurve_{std::make_unique<std::array<GainCurve,2>>()};
     Stereo gainEnvelope_{1.,1.}, quickEnvelope_{1.,1.}, slowEnvelope_{1.,1.};
     std::array<std::size_t,2> quickHold_{}, slowHold_{};
     double shortEnergy_=0., longEnergy_=0., lowEnergy_=0.;

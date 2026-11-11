@@ -280,8 +280,8 @@ void MasterLimiter::reset() noexcept {
     postGainHistory_.fill({1.,1.});
     audioCursor_=peakCursor_=postCursor_=0;gain_={1.,1.};postGain_={1.,1.};reductionDb_={};prePostEffectiveGain_={1.,1.};outputTruePeak_=0.;
     emergencyGain_=1.;
-    for(auto& curve: mainCurve_) curve.reset();
-    for(auto& curve: postCurve_) curve.reset();
+    for(auto& curve: *mainCurve_) curve.reset();
+    for(auto& curve: *postCurve_) curve.reset();
     gainEnvelope_={1.,1.};quickEnvelope_={1.,1.};slowEnvelope_={1.,1.};
     quickHold_.fill(0);slowHold_.fill(0);
     shortEnergy_=longEnergy_=lowEnergy_=0.;lowpass_={};
@@ -340,8 +340,8 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
     const std::size_t fade=std::max(std::size_t(1),
                       static_cast<std::size_t>(std::round(double(ahead)*attackFraction)));
     const Stereo softRequest{
-        postCurve_[0].process(requested.l,ahead,fade),
-        postCurve_[1].process(requested.r,ahead,fade)
+        (*postCurve_)[0].process(requested.l,ahead,fade),
+        (*postCurve_)[1].process(requested.r,ahead,fade)
     };
     // Distinct post-TP recovery behaviour (all share the same 8x peak ceiling):
     // Clean protects low-frequency waveforms, Punch recovers transients faster,
@@ -442,8 +442,8 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     const auto fade=std::max(std::size_t(1),
                             static_cast<std::size_t>(std::round(userAhead*attackPortion)));
     const Stereo shaped{
-        mainCurve_[0].process(wantL,userAhead,fade),
-        mainCurve_[1].process(wantR,userAhead,fade)
+        (*mainCurve_)[0].process(wantL,userAhead,fade),
+        (*mainCurve_)[1].process(wantR,userAhead,fade)
     };
     // Two independent demand memories distinguish isolated peaks from dense
     // sustained limiting. AUTO release responds to *duration and depth of
