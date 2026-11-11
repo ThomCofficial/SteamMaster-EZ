@@ -146,6 +146,13 @@ void SteamMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     inputPeakR.store(inputR, std::memory_order_relaxed);
     outputPeakL.store(outputL, std::memory_order_relaxed);
     outputPeakR.store(outputR, std::memory_order_relaxed);
+    oceanReductionDb.store(float(rack->firstSix.ocean.gainReductionDb()), std::memory_order_relaxed);
+    furnaceReductionDb.store(float(rack->firstSix.furnace.gainReductionDb()), std::memory_order_relaxed);
+    shadowOpticalReductionDb.store(float(rack->firstSix.shadow.opticalReductionDb()), std::memory_order_relaxed);
+    shadowDiscreteReductionDb.store(float(rack->firstSix.shadow.discreteReductionDb()), std::memory_order_relaxed);
+    const auto limiterGR = rack->limiter.gainReductionDb();
+    limiterReductionDb.store(float(std::max(std::abs(limiterGR.l), std::abs(limiterGR.r))),
+                             std::memory_order_relaxed);
     for (int c = 2; c < buffer.getNumChannels(); ++c)
         buffer.clear(c, 0, buffer.getNumSamples());
 }

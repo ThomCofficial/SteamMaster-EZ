@@ -5,6 +5,7 @@
 #include <random>
 #include <vector>
 #include <string>
+#include <functional>
 
 void checkExciterHostSignalPath() {
     // End-to-end parameter->DSP test: all unrelated modules bypassed, then
@@ -103,6 +104,33 @@ int main(){
     {
       std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
       if(!editor || editor->getWidth()<300)throw std::runtime_error("editor invalid");
+      // All parameter cells must be present, including Parametric Band 4 Gain.
+      // Resizing MUST NOT change any virtual control coordinate.
+      std::function<juce::Component*(juce::Component*,const juce::String&)> findByID;
+      findByID = [&](juce::Component* c,const juce::String& id)->juce::Component* {
+          if(c->getComponentID()==id)return c;
+          for(int k=0;k<c->getNumChildComponents();++k)
+              if(auto* found=findByID(c->getChildComponent(k),id))return found;
+          return nullptr;
+      };
+      auto* firstBand = findByID(editor.get(),"parametric_band_1_gain");
+      auto* lastBand = findByID(editor.get(),"parametric_band_4_gain");
+      if(firstBand==nullptr || lastBand==nullptr)
+          throw std::runtime_error("missing Parametric EQ controls");
+      if(firstBand->getY()!=lastBand->getY())
+          throw std::runtime_error("Parametric Band 4 spilled into a second row");
+      const auto before=lastBand->getBounds();
+      editor->setSize(900,580);
+      if(lastBand->getBounds()!=before)
+          throw std::runtime_error("resizing changed rack control layout");
+      editor->setSize(1580,1050);
+      if(lastBand->getBounds()!=before)
+          throw std::runtime_error("enlarging changed rack control layout");
+      for(auto* param:p->getParameters()) {
+          auto* identified=dynamic_cast<juce::AudioProcessorParameterWithID*>(param);
+          if(identified==nullptr || findByID(editor.get(), identified->paramID)==nullptr)
+              throw std::runtime_error("missing native control for DSP parameter");
+      }
     }
     juce::AudioBuffer<float> audio(2,512);
     juce::MidiBuffer midi;

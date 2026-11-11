@@ -1,5 +1,14 @@
 # SteamMaster EZ — Digital JUCE Mastering Suite
 
+## Refined, fixed rack (EZ v1.2)
+
+- No reflow, scrollbars, or image sprites. All four Parametric EQ bands are in **one single row**.
+- Larger native rotary controls and deliberately distributed horizontal spacing use the full width of each module. Subtle grouping outlines and section status LEDs keep the hardware-style feel.
+- Readouts are concise and unit-aware: e.g. **100%**, **5.00k**, **40ms**, **-6dB**. Manual entry accepts units such as `5k`, while the DSP values and automation retain their underlying precision.
+- Every module is dimmed slightly while bypassed and gains a turquoise status indicator when active.
+- Input/output stereo meters have peak-hold markers, dB ticks and numeric peak readouts. Compressor and limiter modules show real gain-reduction telemetry, copied via atomics from the audio thread.
+- Plugin-host smoke tests assert every parameter has a corresponding editor control, all four EQ bands stay aligned and resizing does not modify virtual control positions.
+
 ## Compact fixed rack (EZ v1.1)
 
 - **Every processing module starts bypassed on a fresh instance**: Ocean, Furnace, Parametric EQ, Pultec, Shadow (including its internal stages), Exciter, Bax Mid, Bax Side, Tape, Stereo Image and Limiter. Global master remains enabled so any module you turn on works immediately. Existing saved sessions still restore their saved states.

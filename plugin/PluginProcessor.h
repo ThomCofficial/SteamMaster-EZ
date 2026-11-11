@@ -31,6 +31,10 @@ public:
     // Read-only UI telemetry. These atomics never affect the audio algorithm.
     std::atomic<float> inputPeakL{0.f}, inputPeakR{0.f};
     std::atomic<float> outputPeakL{0.f}, outputPeakR{0.f};
+    // Snapshot only once per audio block: never read DSP state from the GUI thread.
+    std::atomic<float> oceanReductionDb{0.f}, furnaceReductionDb{0.f};
+    std::atomic<float> shadowOpticalReductionDb{0.f}, shadowDiscreteReductionDb{0.f};
+    std::atomic<float> limiterReductionDb{0.f};
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
     std::array<juce::AudioProcessorParameter*,108> monitored_{};

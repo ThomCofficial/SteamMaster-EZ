@@ -18,7 +18,7 @@ public:
 private:
     class ModulePanel;
     void timerCallback() override;
-    void drawMeter(juce::Graphics&, juce::Rectangle<float>, float) const;
+    void drawMeter(juce::Graphics&, juce::Rectangle<float>, float, float) const;
 
     SteamMasterProcessor& processor;
     std::unique_ptr<juce::LookAndFeel_V4> skin;
@@ -33,6 +33,8 @@ private:
     float uiOffsetX = 0.f, uiOffsetY = 0.f;
     std::vector<std::unique_ptr<ModulePanel>> modules;
     std::array<float, 4> meterLevel{};
+    std::array<float, 4> meterPeakHold{};
+    std::array<int, 4> holdTicks{};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SteamMasterEditor)
 };
