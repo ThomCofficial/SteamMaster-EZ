@@ -372,129 +372,190 @@ inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
 inline void toggle(juce::Graphics& g,juce::Rectangle<float> a,bool on,bool highlighted,bool down,
                    juce::Colour accent=teal)
 {
-    gradient(g,a,4.f,juce::Colour(0xff303943),juce::Colour(0xff161c23));
-    g.setColour(juce::Colour(0xff606b77).withAlpha(.67f));
-    g.drawRoundedRectangle(a.reduced(.5f),3.6f,.8f);
-    const auto pocket=a.reduced(2.5f,3.f);
-    g.setColour(juce::Colour(0xff0a1015));
-    g.fillRoundedRectangle(pocket,2.5f);
-    const float switchX=on?pocket.getRight()-13.f:pocket.getX()+2.f;
-    const auto rocker=juce::Rectangle<float>(switchX,pocket.getY()+2.f,11.f,pocket.getHeight()-4.f);
-    gradient(g,rocker,2.f,juce::Colour(0xff9ba6b1),juce::Colour(0xff45515d));
-    g.setColour(ivory.withAlpha(.44f));
-    g.drawLine(rocker.getX()+2.f,rocker.getY()+2.f,rocker.getRight()-2.f,rocker.getY()+2.f,.8f);
-    // Exactly one coloured state lamp, matching the module's active arc.
-    const float lampX=on?pocket.getX()+8.f:pocket.getRight()-8.f;
-    g.setColour(on?accent:juce::Colour(0xff48515c));
-    g.fillEllipse(lampX-2.6f,pocket.getCentreY()-2.6f,5.2f,5.2f);
-    if(on){
-        g.setColour(accent.withAlpha(highlighted?.20f:.10f));
-        g.fillEllipse(lampX-5.f,pocket.getCentreY()-5.f,10.f,10.f);
+    // Sculpted aluminium toggle bezel with a recessed switch well.
+    g.setColour(black.withAlpha(.70f));
+    g.fillRoundedRectangle(a.translated(0.f,1.2f).expanded(.6f),4.5f);
+    gradient(g,a,4.f,juce::Colour(0xff505e6c),juce::Colour(0xff202a34));
+    g.setColour(ivory.withAlpha(.25f));
+    g.drawRoundedRectangle(a.reduced(.55f),3.5f,.8f);
+    const auto well=a.reduced(2.6f,3.1f);
+    gradient(g,well,2.4f,juce::Colour(0xff080e14),juce::Colour(0xff19232c));
+    g.setColour(black);
+    g.drawRoundedRectangle(well,2.4f,.7f);
+    const float switchX=on?well.getRight()-14.f:well.getX()+2.f;
+    const auto rocker=juce::Rectangle<float>(switchX,well.getY()+1.6f,12.f,well.getHeight()-3.2f);
+    gradient(g,rocker,2.4f,juce::Colour(0xffa8b6c3),juce::Colour(0xff465361));
+    g.setColour(ivory.withAlpha(.52f));
+    g.drawLine(rocker.getX()+2.f,rocker.getY()+2.f,rocker.getRight()-2.f,rocker.getY()+2.f,.7f);
+    const float lampX=on?well.getX()+8.5f:well.getRight()-8.5f;
+    if(on)
+    {
+        g.setColour(accent.withAlpha(highlighted?.25f:.12f));
+        g.fillEllipse(lampX-5.5f,well.getCentreY()-5.5f,11.f,11.f);
     }
-    g.setColour(ivory.withAlpha(down?.72f:.90f));
+    g.setColour(on?accent:juce::Colour(0xff52606d));
+    g.fillEllipse(lampX-2.6f,well.getCentreY()-2.6f,5.2f,5.2f);
+    g.setColour(ivory.withAlpha(down?.72f:.94f));
     g.setFont(juce::Font(juce::FontOptions(9.f)));
-    g.drawFittedText(on?"ON":"OFF",pocket.reduced(12.f,0.f).toNearestInt(),
+    g.drawFittedText(on?"ON":"OFF",well.reduced(13.f,0.f).toNearestInt(),
                      juce::Justification::centred,1);
 }
 
 inline void combo(juce::Graphics& g,juce::Rectangle<float> a,bool pressed,
                   juce::Colour accent=teal)
 {
-    gradient(g,a,4.f,juce::Colour(0xff343e49),juce::Colour(0xff1a222b));
-    g.setColour(juce::Colour(0xff67727f).withAlpha(.64f));
-    g.drawRoundedRectangle(a.reduced(.5f),3.5f,.8f);
-    g.setColour(juce::Colour(0xff0d141b).withAlpha(.8f));
-    g.fillRoundedRectangle(a.getRight()-19.f,a.getY()+2.f,17.f,a.getHeight()-4.f,2.f);
-    g.setColour(ivory.withAlpha(.12f));
-    g.drawLine(a.getRight()-19.f,a.getY()+4.f,
-               a.getRight()-19.f,a.getBottom()-4.f,.7f);
-    const float xc=a.getRight()-10.5f,yc=a.getCentreY();
-    juce::Path arrow;arrow.startNewSubPath(xc-3.4f,yc-1.1f);
-    arrow.lineTo(xc+3.4f,yc-1.1f);arrow.lineTo(xc,yc+2.5f);arrow.closeSubPath();
-    g.setColour(pressed?accent:ivory.withAlpha(.78f));
+    // Flush inset selector rather than a default-looking dropdown.
+    g.setColour(black.withAlpha(.68f));
+    g.fillRoundedRectangle(a.translated(0.f,1.f),3.7f);
+    gradient(g,a,3.5f,juce::Colour(0xff34414e),juce::Colour(0xff19232d));
+    g.setColour(juce::Colour(0xff738394).withAlpha(.55f));
+    g.drawRoundedRectangle(a.reduced(.5f),3.f,.8f);
+    g.setColour(ivory.withAlpha(.11f));
+    g.drawLine(a.getX()+4.f,a.getY()+1.6f,a.getRight()-4.f,a.getY()+1.6f,.7f);
+    const auto right=juce::Rectangle<float>(a.getRight()-17.5f,a.getY()+2.f,15.5f,a.getHeight()-4.f);
+    g.setColour(black.withAlpha(.45f));
+    g.fillRoundedRectangle(right,2.f);
+    g.setColour(ivory.withAlpha(.13f));
+    g.drawLine(right.getX(),right.getY()+2.f,right.getX(),right.getBottom()-2.f,.7f);
+    const float xc=right.getCentreX(),yc=right.getCentreY();
+    juce::Path arrow;
+    arrow.startNewSubPath(xc-3.1f,yc-1.2f);
+    arrow.lineTo(xc+3.1f,yc-1.2f);
+    arrow.lineTo(xc,yc+2.5f);
+    arrow.closeSubPath();
+    g.setColour(pressed?accent:ivory.withAlpha(.80f));
     g.fillPath(arrow);
 }
 
 inline void pushButton(juce::Graphics& g,juce::Rectangle<float> a,juce::Colour base,bool hovered,bool down)
 {
-    gradient(g,a,4.f,juce::Colour(0xff394450),juce::Colour(0xff1d252e));
-    if(base.getSaturation()>.20f){
-        g.setColour(base.withAlpha(down?.60f:.34f));
+    g.setColour(black.withAlpha(.70f));
+    g.fillRoundedRectangle(a.translated(0.f,1.5f),4.f);
+    gradient(g,a,4.f,juce::Colour(0xff485562),juce::Colour(0xff222c36));
+    if(base.getSaturation()>.20f)
+    {
+        g.setColour(base.withAlpha(down?.55f:.27f));
         g.fillRoundedRectangle(a.reduced(1.5f),3.f);
+        g.setColour(base.withAlpha(.62f));
+        g.fillRoundedRectangle(a.getX()+6.f,a.getBottom()-3.2f,a.getWidth()-12.f,1.5f,.75f);
     }
-    g.setColour((hovered?ivory:juce::Colour(0xff697581)).withAlpha(.85f));
-    g.drawRoundedRectangle(a.reduced(.5f),3.6f,.8f);
-    g.setColour(ivory.withAlpha(.11f));
-    g.drawLine(a.getX()+4.f,a.getY()+2.f,a.getRight()-4.f,a.getY()+2.f,.7f);
+    g.setColour((hovered?ivory:juce::Colour(0xff8393a1)).withAlpha(.74f));
+    g.drawRoundedRectangle(a.reduced(.5f),3.5f,.8f);
+    g.setColour(ivory.withAlpha(.17f));
+    g.drawLine(a.getX()+5.f,a.getY()+2.f,a.getRight()-5.f,a.getY()+2.f,.8f);
 }
 
 inline void header(juce::Graphics& g,float width)
 {
     const auto area=juce::Rectangle<float>(2.f,2.f,width-4.f,65.f);
-    rivetedPlate(g,area,7.f,juce::Colour(0xff2c3641),juce::Colour(0xff171e26));
-    const auto brand=juce::Rectangle<float>(11.f,9.f,314.f,49.f);
-    gradient(g,brand,4.f,juce::Colour(0xff222b34),juce::Colour(0xff151b22));
-    g.setColour(juce::Colour(0xff596674).withAlpha(.65f));
-    g.drawRoundedRectangle(brand.reduced(.5f),3.5f,.8f);
-    g.setColour(teal);
-    g.fillRoundedRectangle(brand.getX()+1.f,brand.getY()+6.f,3.f,brand.getHeight()-12.f,1.f);
-    g.setFont(juce::Font(juce::FontOptions(24.f)));
+    rivetedPlate(g,area,7.f,juce::Colour(0xff303b47),juce::Colour(0xff131a22));
+    // Recessed product signature with an optically lit lower edge.
+    const auto brand=juce::Rectangle<float>(11.f,9.f,317.f,49.f);
+    gradient(g,brand,5.f,juce::Colour(0xff2a3540),juce::Colour(0xff121a23));
+    g.setColour(juce::Colour(0xff6e7d8b).withAlpha(.50f));
+    g.drawRoundedRectangle(brand.reduced(.5f),4.5f,.85f);
+    g.setGradientFill(juce::ColourGradient(teal.brighter(.1f),12.f,13.f,
+                                          teal.darker(.55f),12.f,53.f,false));
+    g.fillRoundedRectangle(13.f,14.f,3.5f,39.f,1.5f);
     g.setColour(ivory);
-    g.drawText("STEAMMASTER",22,11,245,29,juce::Justification::centredLeft);
-    g.setColour(teal);
-    g.drawText("EZ",265,11,52,29,juce::Justification::centredLeft);
-    g.setFont(juce::Font(juce::FontOptions(9.f)));
+    g.setFont(juce::Font(juce::FontOptions(24.4f)));
+    g.drawText("STEAMMASTER",25,11,240,29,juce::Justification::centredLeft);
+    g.setColour(teal.brighter(.12f));
+    g.drawText("EZ",264,11,52,29,juce::Justification::centredLeft);
     g.setColour(muted);
-    g.drawText("PRECISION MASTERING WORKS",23,39,276,13,juce::Justification::centredLeft);
+    g.setFont(juce::Font(juce::FontOptions(9.f)));
+    g.drawText("PRECISION MASTERING WORKS",26,39,278,13,juce::Justification::centredLeft);
+    g.setColour(ivory.withAlpha(.08f));
+    g.drawLine(22.f,57.f,313.f,57.f,.7f);
 
-    // Small engineering signature; no large faux-gear badge or gold trim.
-    g.setColour(teal.withAlpha(.85f));
-    g.drawEllipse(345.f,23.f,21.f,21.f,1.5f);
-    g.drawLine(355.5f,18.f,355.5f,29.f,1.5f);
-    g.setFont(juce::Font(juce::FontOptions(10.5f)));
+    // Engineering mark: three aligned circles form a unique, simple logo.
+    const auto mark=juce::Rectangle<float>(347.f,23.f,25.f,25.f);
+    g.setColour(juce::Colour(0xff0a131c));
+    g.fillEllipse(mark);
+    for(int k=0;k<3;++k)
+    {
+        const float radius=8.f-float(k)*2.2f;
+        g.setColour(teal.withAlpha(.73f-float(k)*.15f));
+        g.drawEllipse(mark.getCentreX()-radius,mark.getCentreY()-radius,
+                      radius*2.f,radius*2.f,1.f);
+    }
     g.setColour(ivory);
-    g.drawText("THOMC",381,13,140,20,juce::Justification::centredLeft);
-    g.setFont(juce::Font(juce::FontOptions(9.f)));
+    g.setFont(juce::Font(juce::FontOptions(11.f)));
+    g.drawText("THOMC",385,13,130,20,juce::Justification::centredLeft);
     g.setColour(muted);
-    g.drawText("STEAM ENGINEERING",381,34,150,17,juce::Justification::centredLeft);
+    g.setFont(juce::Font(juce::FontOptions(9.f)));
+    g.drawText("STEAM ENGINEERING",385,34,143,17,juce::Justification::centredLeft);
 
     const auto controls=juce::Rectangle<float>(528.f,11.f,229.f,44.f);
-    gradient(g,controls,5.f,juce::Colour(0xff242d37),juce::Colour(0xff131a22));
-    g.setColour(juce::Colour(0xff586573).withAlpha(.52f));
+    gradient(g,controls,5.f,juce::Colour(0xff283440),juce::Colour(0xff121b24));
+    g.setColour(juce::Colour(0xff6c7a89).withAlpha(.50f));
     g.drawRoundedRectangle(controls.reduced(.5f),4.5f,.8f);
 
+    // Original signature: a luminous steam-coil/ribbon sculpted from curves.
+    // The shape is ornamental only, not a fake control or an audio waveform.
+    const auto coil=juce::Rectangle<float>(777.f,9.f,92.f,49.f);
+    gradient(g,coil,5.f,juce::Colour(0xff0c1824),juce::Colour(0xff101c27));
+    g.setColour(juce::Colour(0xff4e6171).withAlpha(.40f));
+    g.drawRoundedRectangle(coil.reduced(.6f),4.5f,.75f);
+    const float cx=823.f,cy=33.5f;
+    for(int k=4;k>=0;--k)
+    {
+        const float rx=15.f+float(k)*4.1f;
+        const float ry=7.f+float(k)*2.9f;
+        juce::Path ribbon;
+        ribbon.startNewSubPath(cx-rx,cy);
+        ribbon.cubicTo(cx-rx*.75f,cy-ry*1.7f,cx+rx*.67f,cy-ry*1.4f,cx+rx,cy);
+        ribbon.cubicTo(cx+rx*.64f,cy+ry*1.6f,cx-rx*.69f,cy+ry*1.45f,cx-rx,cy);
+        g.setColour(teal.withAlpha(.06f));
+        g.strokePath(ribbon,juce::PathStrokeType(4.5f));
+        g.setColour(teal.brighter(.14f).withAlpha(.38f+float(4-k)*.12f));
+        g.strokePath(ribbon,juce::PathStrokeType(1.15f));
+    }
+    g.setColour(ivory.withAlpha(.5f));
+    g.drawLine(866.f,17.f,866.f,50.f,.65f);
+
     const auto metering=juce::Rectangle<float>(942.f,8.f,490.f,51.f);
-    gradient(g,metering,4.f,juce::Colour(0xff222b34),juce::Colour(0xff121820));
-    g.setColour(juce::Colour(0xff53606d).withAlpha(.50f));
-    g.drawRoundedRectangle(metering.reduced(.5f),3.5f,.8f);
+    gradient(g,metering,4.f,juce::Colour(0xff26333e),juce::Colour(0xff0c141d));
+    g.setColour(juce::Colour(0xff5d6c7a).withAlpha(.55f));
+    g.drawRoundedRectangle(metering.reduced(.5f),3.5f,.85f);
+    g.setColour(ivory.withAlpha(.10f));
+    g.drawLine(943.f,34.f,1430.f,34.f,.6f);
 }
 
 inline void meter(juce::Graphics& g,juce::Rectangle<float> a,float peak,float held)
 {
-    g.setColour(juce::Colour(0xff080d12));
-    g.fillRoundedRectangle(a.expanded(1.f),2.8f);
-    gradient(g,a,2.f,juce::Colour(0xff0f1921),juce::Colour(0xff070c11));
-    g.setColour(juce::Colour(0xff4c5965).withAlpha(.7f));
-    g.drawRoundedRectangle(a.expanded(.4f),2.8f,.75f);
+    g.setColour(juce::Colour(0xff060c13));
+    g.fillRoundedRectangle(a.expanded(1.1f),3.f);
+    gradient(g,a,2.f,juce::Colour(0xff0b1b25),juce::Colour(0xff050c12));
+    g.setColour(juce::Colour(0xff526778).withAlpha(.65f));
+    g.drawRoundedRectangle(a.expanded(.4f),2.7f,.75f);
     const auto map=[](float v){
         return juce::jlimit(0.f,1.f,
             (juce::Decibels::gainToDecibels(juce::jmax(.000001f,v))+60.f)/60.f);
     };
     const float fraction=map(peak),hold=map(held);
-    if(fraction>.0001f)
+    // Segmented optical LEDs, colour-coded ONLY for actual level warnings.
+    constexpr int n=37;
+    const float gap=1.1f;
+    const float cellW=(a.getWidth()-2.f-gap*float(n-1))/float(n);
+    for(int k=0;k<n;++k)
     {
-        auto fill=a.reduced(1.1f);
-        fill.setWidth(fill.getWidth()*fraction);
-        g.setColour(fraction>.98f?juce::Colour(0xfff09a8b):teal);
-        g.fillRoundedRectangle(fill,1.4f);
+        const float p=(float(k)+.5f)/float(n);
+        const float db=-60.f+p*60.f;
+        const auto c=db>-3.f?juce::Colour(0xfff68c83):
+                     db>-10.f?juce::Colour(0xffe6bd76):teal;
+        const auto led=juce::Rectangle<float>(a.getX()+1.f+float(k)*(cellW+gap),
+                                              a.getY()+2.f,cellW,a.getHeight()-4.f);
+        g.setColour(p<=fraction?c:juce::Colour(0xff1b2c37));
+        g.fillRoundedRectangle(led,.55f);
+        if(p<=fraction)
+        {
+            g.setColour(ivory.withAlpha(.19f));
+            g.drawLine(led.getX()+.3f,led.getY()+.7f,
+                       led.getRight()-.3f,led.getY()+.7f,.45f);
+        }
     }
-    for(float db:{-48.f,-24.f,-12.f,-6.f})
-    {
-        const float xx=a.getX()+(db+60.f)/60.f*a.getWidth();
-        g.setColour(black.withAlpha(.7f));
-        g.drawLine(xx,a.getY()+1.f,xx,a.getBottom()-1.f,.7f);
-    }
-    g.setColour(ivory.withAlpha(.85f));
+    g.setColour(ivory.withAlpha(.9f));
     const float xx=a.getX()+hold*a.getWidth();
     g.drawLine(xx,a.getY()+1.f,xx,a.getBottom()-1.f,1.f);
 }
