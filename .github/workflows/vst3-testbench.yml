@@ -15,6 +15,12 @@ jobs:
         run: cmake --build build-ez --config Release --target SteamMasterEZ_VST3 steammaster_plugin_host_smoke --parallel 2
       - name: Run JUCE plugin smoke test
         run: ctest --test-dir build-ez -C Release -R SteamMasterPluginHostSmoke --output-on-failure
+      - name: Publish actual JUCE-rendered Foundry screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: SteamMaster-EZ-Foundry-Actual-UI-Preview
+          path: build-ez/**/SteamMaster-EZ-Foundry-Preview.png
+          if-no-files-found: warn
       - name: Package SteamMaster EZ
         shell: pwsh
         run: |

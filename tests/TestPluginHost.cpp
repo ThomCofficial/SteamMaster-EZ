@@ -112,6 +112,21 @@ int main(){
     {
       std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
       if(!editor || editor->getWidth()<300)throw std::runtime_error("editor invalid");
+      // Produce the REAL JUCE-rendered screenshot from the Windows host test,
+      // not a generated illustration or a PNG sent by the user.
+      if(fs==48000.) {
+          editor->setSize(1580,1050);
+          const auto snapshot=editor->createComponentSnapshot(editor->getLocalBounds(),true,1.0f);
+          if(snapshot.isNull())throw std::runtime_error("Foundry screenshot empty");
+          const auto target=juce::File::getCurrentWorkingDirectory()
+                            .getChildFile("SteamMaster-EZ-Foundry-Preview.png");
+          juce::FileOutputStream stream(target);
+          if(!stream.openedOk())throw std::runtime_error("Foundry screenshot output unavailable");
+          juce::PNGImageFormat png;
+          if(!png.writeImageToStream(snapshot,stream))
+              throw std::runtime_error("Foundry screenshot PNG encoding failed");
+          stream.flush();
+      }
       // All parameter cells must be present, including Parametric Band 4 Gain.
       // Resizing MUST NOT change any virtual control coordinate.
       std::function<juce::Component*(juce::Component*,const juce::String&)> findByID;
