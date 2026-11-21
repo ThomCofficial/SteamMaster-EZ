@@ -257,10 +257,14 @@ public:
                 control->setAlpha(isActive ? 1.f : 0.90f);
             repaint();
         }
-        else if (index == 2 || index == 5 || index == 10)
+        else
         {
-            // Small gain-reduction displays are read-only telemetry.
-            repaint(juce::Rectangle<int>(15, 52, 169, 34));
+            if (index == 2 || index == 5 || index == 10)
+                repaint(juce::Rectangle<int>(15, 52, 169, 34));
+            // The decorative valve filaments and tape hubs animate only while
+            // the unit is active. Keep repaints local to the nameplate.
+            if (isActive && (index == 5 || index == 6 || index == 8))
+                repaint(juce::Rectangle<int>(154, 13, 38, 36));
         }
     }
 
