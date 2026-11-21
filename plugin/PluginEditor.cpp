@@ -35,21 +35,24 @@ public:
                           float pos, float startAngle, float endAngle, juce::Slider& knob) override
     {
         foundry::rotary(g,x,y,width,height,pos,startAngle,endAngle,
-                        knob.isMouseOverOrDragging());
+                        knob.isMouseOverOrDragging(),
+                        knob.findColour(juce::Slider::rotarySliderFillColourId));
     }
 
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
                           bool highlighted, bool down) override
     {
         foundry::toggle(g,button.getLocalBounds().toFloat().reduced(4.f,3.f),
-                        button.getToggleState(),highlighted,down);
+                        button.getToggleState(),highlighted,down,
+                        button.findColour(juce::ToggleButton::tickColourId));
     }
 
     void drawComboBox(juce::Graphics& g, int width, int height, bool pressed,
-                      int, int, int, int, juce::ComboBox&) override
+                      int, int, int, int, juce::ComboBox& box) override
     {
         foundry::combo(g,juce::Rectangle<float>(.5f,.5f,float(width)-1.f,
-                                                float(height)-1.f),pressed);
+                                                float(height)-1.f),pressed,
+                        box.findColour(juce::ComboBox::arrowColourId));
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button,
@@ -111,7 +114,8 @@ class ParameterCell final : public juce::Component
 {
 public:
     ParameterCell(juce::AudioProcessorValueTreeState& state,
-                  juce::AudioProcessorParameterWithID& parameter)
+                  juce::AudioProcessorParameterWithID& parameter,
+                  juce::Colour accent)
     {
         const auto id = parameter.paramID;
         auto name = parameter.getName(256).fromFirstOccurrenceOf(" / ", false, false);
@@ -139,6 +143,7 @@ public:
         if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(&parameter))
         {
             combo = std::make_unique<juce::ComboBox>();
+            combo->setColour(juce::ComboBox::arrowColourId,accent);
             combo->addItemList(choice->choices, 1);
             combo->setTooltip(parameter.getName(256) + ": choose a stepped setting.");
             addAndMakeVisible(*combo);
@@ -148,6 +153,7 @@ public:
         else if (dynamic_cast<juce::AudioParameterBool*>(&parameter) != nullptr)
         {
             toggle = std::make_unique<juce::ToggleButton>();
+            toggle->setColour(juce::ToggleButton::tickColourId,accent);
             toggle->setClickingTogglesState(true);
             toggle->setTooltip(parameter.getName(256) + ": enable or bypass.");
             addAndMakeVisible(*toggle);
@@ -157,6 +163,7 @@ public:
         else
         {
             knob = std::make_unique<juce::Slider>();
+            knob->setColour(juce::Slider::rotarySliderFillColourId,accent);
             knob->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
             knob->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 76, 17);
             knob->setScrollWheelEnabled(true);
@@ -233,7 +240,8 @@ public:
                     if (auto* flag = state.getRawParameterValue(identified->paramID))
                         activeFlags.push_back(flag);
                 }
-                auto cell = std::make_unique<ParameterCell>(state, *identified);
+                auto cell = std::make_unique<ParameterCell>(
+                    state, *identified, foundry::moduleAccent(index));
                 addAndMakeVisible(*cell);
                 controls.push_back(std::move(cell));
             }
@@ -279,11 +287,12 @@ public:
         g.setColour(juce::Colour(0xff30180b));
         g.setFont(juce::Font(juce::FontOptions(14.1f)));
         g.drawFittedText(title,22,11,127,23,juce::Justification::centredLeft,1);
-        g.setColour(foundry::muted);
+        const auto accent=foundry::moduleAccent(index);
+        g.setColour(accent.brighter(.08f));
         g.setFont(juce::Font(juce::FontOptions(9.5f)));
         g.drawFittedText(description.toUpperCase(),19,36,135,14,
                          juce::Justification::centredLeft,1);
-        g.setColour(isActive?foundry::teal:foundry::muted.withAlpha(.6f));
+        g.setColour(isActive?accent:foundry::muted.withAlpha(.6f));
         g.setFont(juce::Font(juce::FontOptions(9.3f)));
         g.drawText(isActive?"ACTIVE":"BYPASSED",19,52,92,15,
                    juce::Justification::centredLeft);
@@ -305,7 +314,7 @@ public:
             reduction = printReduction("GR ", processor.limiterReductionDb.load(std::memory_order_relaxed));
         if (reduction.isNotEmpty())
         {
-            g.setColour(foundry::gold);
+            g.setColour(accent);
             g.drawFittedText(reduction, 94, 52, 91, 16,
                              juce::Justification::centredRight, 1);
             const auto drawGR = [&](float value, float x, float width) {
@@ -313,7 +322,7 @@ public:
                 g.fillRoundedRectangle(x,74.f,width,5.f,2.f);
                 const float amount=width*juce::jlimit(0.f,1.f,std::abs(value)/18.f);
                 if(amount>.05f){
-                    g.setGradientFill(juce::ColourGradient(isActive?foundry::teal:foundry::bronze,
+                    g.setGradientFill(juce::ColourGradient(isActive?accent:foundry::bronze,
                                       x,74.f,foundry::gold,x+amount,79.f,false));
                     g.fillRoundedRectangle(x,74.f,amount,5.f,1.6f);
                 }
@@ -336,7 +345,7 @@ public:
                    float(controlLeft - 8), float(getHeight() - 7), 1.f);
 
         if (index == 7 && groups.size() == 2) {
-            g.setColour(aqua.withAlpha(0.7f));
+            g.setColour(accent.withAlpha(0.9f));
             g.setFont(juce::Font(juce::FontOptions(10.f)));
             g.drawText("MID", controlLeft + 8, 2, 45, 13, juce::Justification::centredLeft);
             g.drawText("SIDE", controlLeft + 615, 2, 45, 13, juce::Justification::centredLeft);
@@ -351,9 +360,9 @@ public:
             {
                 const float x = float(firstX + (bandStart + band * 4) * pitch - 3);
                 const auto bandArea = juce::Rectangle<float>(x, 6.f, float(pitch * 4 - 2), 85.f);
-                g.setColour((band % 2 == 0 ? aqua : copper).withAlpha(0.055f));
+                g.setColour(accent.withAlpha(band%2==0?.085f:.035f));
                 g.fillRoundedRectangle(bandArea, 6.f);
-                g.setColour((band % 2 == 0 ? aqua : copper).withAlpha(0.42f));
+                g.setColour(accent.withAlpha(band%2==0?.60f:.34f));
                 g.drawRoundedRectangle(bandArea, 6.f, 0.8f);
             }
         }

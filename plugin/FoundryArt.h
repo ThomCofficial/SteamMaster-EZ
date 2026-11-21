@@ -19,6 +19,26 @@ inline const juce::Colour muted  {0xffadaf9f};
 inline const juce::Colour teal   {0xff63dec6};
 inline const juce::Colour warm   {0xfff39d5d};
 
+// Ten distinct instrument accent colours. Intentionally restrained: the
+// original brass/iron/walnut material system remains identical in every row.
+inline juce::Colour moduleAccent(int index)
+{
+    switch(index)
+    {
+        case 1: return juce::Colour(0xfff4da9b); // champagne
+        case 2: return juce::Colour(0xff78b5e0); // steel blue
+        case 3: return juce::Colour(0xff55dbb6); // emerald teal
+        case 4: return juce::Colour(0xffefbc65); // warm amber
+        case 5: return juce::Colour(0xffd98670); // oxidised copper red
+        case 6: return juce::Colour(0xffffa64b); // vivid orange
+        case 7: return juce::Colour(0xff69dce5); // pale cyan
+        case 8: return juce::Colour(0xffd49b72); // burnt sienna
+        case 9: return juce::Colour(0xff6cceb7); // marine green
+        case 10:return juce::Colour(0xffedba77); // restrained red-gold
+        default:return teal;
+    }
+}
+
 inline void gradient(juce::Graphics& g, juce::Rectangle<float> a, float round,
                      juce::Colour upper, juce::Colour lower)
 {
@@ -238,8 +258,7 @@ inline void icon(juce::Graphics& g,int index,float x,float y,bool active,float t
 
 inline void moduleSurface(juce::Graphics& g,juce::Rectangle<float> a,int index,bool active,float t)
 {
-    const auto accent=(index==2||index==5||index==10)?copper:
-                      (index==3||index==7||index==9)?teal:gold;
+    const auto accent=moduleAccent(index);
     const auto top=index==4||index==8?juce::Colour(0xff50432e):
                    index==2||index==5?juce::Colour(0xff334446):ironHi;
     const auto bottom=index==4||index==8?juce::Colour(0xff241d16):iron;
@@ -252,8 +271,15 @@ inline void moduleSurface(juce::Graphics& g,juce::Rectangle<float> a,int index,b
     atelier::fill(g,instrument.reduced(1.f),3.6f,atelier::Material::forgedIron,1.f);
     g.setColour(juce::Colours::black.withAlpha(.6f));
     g.drawRoundedRectangle(instrument.reduced(.2f),4.f,2.f);
-    g.setColour(juce::Colour(0xffc38645).withAlpha(.61f));
+    g.setColour(copper.withAlpha(.34f));
     g.drawRoundedRectangle(instrument.reduced(1.8f),3.2f,.72f);
+    // Long, fine colour-coded enamel seam — immediately readable as separate
+    // hardware families without turning the iron chassis into a rainbow.
+    g.setGradientFill(juce::ColourGradient(accent.withAlpha(.68f),
+                       instrument.getX()+7.f,instrument.getY()+3.f,
+                       accent.withAlpha(.10f),instrument.getRight()-10.f,instrument.getY()+3.f,false));
+    g.fillRoundedRectangle(instrument.getX()+7.f,instrument.getY()+2.8f,
+                           instrument.getWidth()-16.f,2.0f,.7f);
 
     // The processor nameplate is aged walnut, while its embossed title
     // plaque is pale enamel. All text stays rendered in JUCE.
@@ -268,13 +294,22 @@ inline void moduleSurface(juce::Graphics& g,juce::Rectangle<float> a,int index,b
     atelier::fill(g,engraving.reduced(.8f),3.f,atelier::Material::satinBrass,.22f);
     g.setColour(juce::Colour(0xff4d2912));
     g.drawRoundedRectangle(engraving,4.f,1.25f);
+    // Accent enamel is a slim line BELOW the engraved title, not text tint.
+    g.setColour(accent.darker(.22f));
+    g.fillRoundedRectangle(engraving.getX()+5.f,engraving.getBottom()-4.5f,
+                           engraving.getWidth()-10.f,2.3f,1.f);
     g.setColour(ivory.withAlpha(.7f));
     g.drawLine(engraving.getX()+5.f,engraving.getY()+2.f,
                engraving.getRight()-5.f,engraving.getY()+2.f,.65f);
 
     const auto motif=juce::Rectangle<float>(156.f,14.f,34.f,34.f);
     g.setColour(black.withAlpha(.86f));g.fillRoundedRectangle(motif,3.5f);
-    g.setColour(copper.withAlpha(.74f));g.drawRoundedRectangle(motif,3.5f,1.f);
+    g.setColour(accent.withAlpha(.76f));g.drawRoundedRectangle(motif,3.5f,1.15f);
+    // Colour-coded jewel/rivet to the left of the module's mechanical icon.
+    g.setColour(accent.withAlpha(active?.30f:.09f));
+    g.fillEllipse(155.5f,10.5f,15.f,15.f);
+    g.setColour(accent.withAlpha(.92f));
+    g.fillEllipse(159.f,14.f,8.f,8.f);
     icon(g,index,173.f,31.f,active,t);
     screw(g,11.5f,9.f,2.f);screw(g,194.5f,9.f,2.f,true);
     screw(g,11.5f,a.getBottom()-9.f,2.f,true);
@@ -282,8 +317,11 @@ inline void moduleSurface(juce::Graphics& g,juce::Rectangle<float> a,int index,b
     g.setColour(gold.withAlpha(.5f));g.drawLine(17.f,49.f,152.f,49.f,.75f);
     g.setColour(juce::Colours::black.withAlpha(.82f));
     g.drawLine(204.f,6.f,204.f,a.getBottom()-6.f,2.f);
-    g.setColour(copper.withAlpha(.76f));
-    g.drawLine(206.f,7.f,206.f,a.getBottom()-7.f,1.f);
+    g.setColour(accent.withAlpha(.92f));
+    g.drawLine(206.f,7.f,206.f,a.getBottom()-7.f,2.2f);
+    // Short left-hand status ribbon carries the same identity.
+    g.setColour(accent.withAlpha(.80f));
+    g.fillRoundedRectangle(11.f,40.f,3.f,23.f,1.f);
 
     // A short engraving specific to the compression/recording hardware.
     if(index==2||index==5)
@@ -314,7 +352,8 @@ inline void cell(juce::Graphics& g,juce::Rectangle<float> a)
 }
 
 inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
-                   float startAngle,float endAngle,bool hovered)
+                   float startAngle,float endAngle,bool hovered,
+                   juce::Colour accent=teal)
 {
     const float cx=float(x)+float(width)*.5f,cy=float(y)+float(height)*.5f;
     const float half=juce::jmin(float(width),float(height))*.5f;
@@ -328,9 +367,9 @@ inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
     signal.addCentredArc(cx,cy,ring,ring,0.f,startAngle,angle,true);
     g.setColour(black);g.strokePath(track,juce::PathStrokeType(4.f));
     g.setColour(bronze.withAlpha(.88f));g.strokePath(track,juce::PathStrokeType(1.65f));
-    g.setColour((hovered?teal.brighter(.2f):teal).withAlpha(.18f));
+    g.setColour((hovered?accent.brighter(.2f):accent).withAlpha(.20f));
     g.strokePath(signal,juce::PathStrokeType(4.8f));
-    g.setColour(hovered?teal.brighter(.15f):teal);
+    g.setColour(hovered?accent.brighter(.15f):accent);
     g.strokePath(signal,juce::PathStrokeType(1.7f));
     for(int k=0;k<=10;++k)
     {
@@ -362,7 +401,8 @@ inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
     screw(g,cx,cy,1.65f,true);
 }
 
-inline void toggle(juce::Graphics& g,juce::Rectangle<float> a,bool on,bool highlighted,bool down)
+inline void toggle(juce::Graphics& g,juce::Rectangle<float> a,bool on,bool highlighted,bool down,
+                   juce::Colour accent=teal)
 {
     g.setColour(black.withAlpha(.84f));
     g.fillRoundedRectangle(a.translated(0.f,1.2f),3.5f);
@@ -377,14 +417,15 @@ inline void toggle(juce::Graphics& g,juce::Rectangle<float> a,bool on,bool highl
     g.setColour(ivory.withAlpha(.72f));
     g.drawLine(rocker.getX()+2.f,rocker.getY()+2.f,rocker.getRight()-2.f,rocker.getY()+2.f,.7f);
     lamp(g,on?pocket.getX()+8.f:pocket.getRight()-8.f,pocket.getCentreY(),on,
-         highlighted?teal.brighter(.3f):teal);
+         highlighted?accent.brighter(.3f):accent);
     g.setColour(ivory.withAlpha(down?.72f:.95f));
     g.setFont(juce::Font(juce::FontOptions(9.f)));
     g.drawFittedText(on?"ON":"OFF",pocket.reduced(11.f,0.f).toNearestInt(),
                      juce::Justification::centred,1);
 }
 
-inline void combo(juce::Graphics& g,juce::Rectangle<float> a,bool pressed)
+inline void combo(juce::Graphics& g,juce::Rectangle<float> a,bool pressed,
+                  juce::Colour accent=teal)
 {
     g.setColour(black);g.fillRoundedRectangle(a.translated(0.f,1.f),3.5f);
     atelier::fill(g,a,3.5f,atelier::Material::oldCopper,.82f);
@@ -398,7 +439,7 @@ inline void combo(juce::Graphics& g,juce::Rectangle<float> a,bool pressed)
     const float xc=a.getRight()-10.5f,yc=a.getCentreY();
     juce::Path arrow;arrow.startNewSubPath(xc-3.4f,yc-1.1f);
     arrow.lineTo(xc+3.4f,yc-1.1f);arrow.lineTo(xc,yc+2.5f);arrow.closeSubPath();
-    g.setColour(pressed?teal:gold);g.fillPath(arrow);
+    g.setColour(pressed?accent:gold);g.fillPath(arrow);
 }
 
 inline void pushButton(juce::Graphics& g,juce::Rectangle<float> a,juce::Colour base,bool hovered,bool down)
