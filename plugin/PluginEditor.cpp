@@ -1,15 +1,16 @@
 #include "PluginEditor.h"
+#include "FoundryArt.h"
 #include <algorithm>
 #include <cmath>
 
 namespace
 {
-const auto background = juce::Colour(0xff0a1019);
-const auto panelDark = juce::Colour(0xff111d2a);
-const auto panelLight = juce::Colour(0xff1c2b3a);
-const auto copper = juce::Colour(0xffd4a76f);
-const auto aqua = juce::Colour(0xff66d9c6);
-const auto secondaryText = juce::Colour(0xff8fa6b7);
+const auto background=foundry::black;
+const auto panelDark=foundry::iron;
+const auto panelLight=foundry::ironHi;
+const auto copper=foundry::gold;
+const auto aqua=foundry::teal;
+const auto secondaryText=foundry::muted;
 
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
@@ -19,138 +20,44 @@ public:
         setColour(juce::ComboBox::textColourId, juce::Colours::white);
         setColour(juce::ComboBox::arrowColourId, copper);
         setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
-        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff192838));
+        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff1b292b));
         setColour(juce::Label::textColourId, secondaryText);
-        setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xffe8edf0));
-        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff142331));
+        setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xfff5e6c9));
+        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff182224));
         setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-        setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff15212d));
+        setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff1a2222));
         setColour(juce::PopupMenu::textColourId, juce::Colours::white);
-        setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xff315d66));
-        setColour(juce::ScrollBar::thumbColourId, juce::Colour(0xff44606a));
+        setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xff435747));
+        setColour(juce::ScrollBar::thumbColourId, juce::Colour(0xffad8951));
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                           float pos, float startAngle, float endAngle, juce::Slider& knob) override
     {
-        // Individually machined titanium knob with a recessed, illuminated encoder ring.
-        // Native JUCE slider handles all mouse gestures and APVTS automation.
-        const float cx=x+width*.5f, cy=y+height*.5f;
-        const float r=juce::jmin(float(width),float(height))*.353f;
-        const float angle=startAngle+pos*(endAngle-startAngle);
-        const auto brass=juce::Colour(0xffcaa77a);
-        const auto glow=knob.isMouseOverOrDragging() ? juce::Colour(0xff8cf8e2) : aqua;
-
-        g.setColour(juce::Colours::black.withAlpha(.34f));
-        g.fillEllipse(cx-r-2.f,cy-r+3.f,(r+2.f)*2.f,(r+2.f)*2.f);
-        const float ring=r+5.f;
-        juce::Path groove, progress;
-        groove.addCentredArc(cx,cy,ring,ring,0.f,startAngle,endAngle,true);
-        progress.addCentredArc(cx,cy,ring,ring,0.f,startAngle,angle,true);
-        g.setColour(juce::Colour(0xff050d14));
-        g.strokePath(groove,juce::PathStrokeType(4.6f));
-        g.setColour(juce::Colour(0xff344a59));
-        g.strokePath(groove,juce::PathStrokeType(2.4f));
-        g.setColour(glow.withAlpha(.18f));
-        g.strokePath(progress,juce::PathStrokeType(6.4f));
-        g.setColour(glow);
-        g.strokePath(progress,juce::PathStrokeType(2.6f));
-
-        for(int i=0;i<=10;++i)
-        {
-            const float a=startAngle+float(i)*(endAngle-startAngle)/10.f;
-            const float s=std::sin(a), c=std::cos(a);
-            const float outer=ring+6.f;
-            const float inner=outer-(i%5==0?3.3f:1.7f);
-            g.setColour((i%5==0 ? brass : juce::Colour(0xff70818c)).withAlpha(.78f));
-            g.drawLine(cx+s*inner,cy-c*inner,cx+s*outer,cy-c*outer,i%5==0?1.15f:.7f);
-        }
-
-        const auto rim=juce::Rectangle<float>(cx-r,cy-r,2.f*r,2.f*r);
-        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff82919b),cx-r,cy-r,
-                                               juce::Colour(0xff162430),cx+r,cy+r,false));
-        g.fillEllipse(rim);
-        g.setColour(juce::Colour(0xffcfb28a).withAlpha(.52f));
-        g.drawEllipse(rim.reduced(.7f),1.f);
-        const auto face=rim.reduced(3.1f);
-        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff394b5b),cx-r*.5f,cy-r*.8f,
-                                               juce::Colour(0xff0e1b27),cx+r*.7f,cy+r*.8f,false));
-        g.fillEllipse(face);
-        g.setColour(juce::Colour(0xffaebfc5).withAlpha(.23f));
-        g.drawEllipse(face.reduced(.7f),.8f);
-
-        const float inner=r*.72f;
-        const float tx=cx+std::sin(angle)*inner, ty=cy-std::cos(angle)*inner;
-        g.setColour(juce::Colours::black.withAlpha(.65f));
-        g.drawLine(cx+1.f,cy+1.f,tx+1.f,ty+1.f,3.6f);
-        g.setColour(brass.brighter(.19f));
-        g.drawLine(cx,cy,tx,ty,2.5f);
-        g.setColour(juce::Colour(0xff162531));
-        g.fillEllipse(cx-2.5f,cy-2.5f,5.f,5.f);
-        g.setColour(juce::Colour(0xff84939e).withAlpha(.55f));
-        g.drawEllipse(cx-2.5f,cy-2.5f,5.f,5.f,.8f);
+        foundry::rotary(g,x,y,width,height,pos,startAngle,endAngle,
+                        knob.isMouseOverOrDragging());
     }
 
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
                           bool highlighted, bool down) override
     {
-        const auto a=button.getLocalBounds().toFloat().reduced(5.f,3.f);
-        const bool enabled=button.getToggleState();
-        const auto led=enabled ? aqua : juce::Colour(0xff677d86);
-        g.setColour(juce::Colours::black.withAlpha(.35f));
-        g.fillRoundedRectangle(a.translated(0.f,2.f),5.f);
-        g.setGradientFill(juce::ColourGradient(
-            enabled?juce::Colour(0xff315e60):juce::Colour(0xff344451),a.getX(),a.getY(),
-            enabled?juce::Colour(0xff13353a):juce::Colour(0xff14212d),a.getX(),a.getBottom(),false));
-        g.fillRoundedRectangle(a,5.f);
-        g.setColour(enabled ? led.withAlpha(.68f) : juce::Colour(0xff607483));
-        g.drawRoundedRectangle(a.reduced(.6f),5.f,1.f);
-        g.setColour(enabled?led:juce::Colour(0xff172632));
-        g.fillEllipse(a.getX()+6.f,a.getCentreY()-2.2f,4.4f,4.4f);
-        g.setColour(juce::Colour(0xffebf2f1).withAlpha(highlighted?1.f:.86f));
-        g.setFont(juce::Font(juce::FontOptions(9.3f)));
-        g.drawFittedText(enabled?"ON":"OFF",a.withTrimmedLeft(11.f).toNearestInt(),
-                         juce::Justification::centred,1);
-        if(down){g.setColour(juce::Colours::black.withAlpha(.17f));g.fillRoundedRectangle(a,5.f);}
+        foundry::toggle(g,button.getLocalBounds().toFloat().reduced(4.f,3.f),
+                        button.getToggleState(),highlighted,down);
     }
 
-    void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
-                      int, int, int, int, juce::ComboBox& box) override
+    void drawComboBox(juce::Graphics& g, int width, int height, bool pressed,
+                      int, int, int, int, juce::ComboBox&) override
     {
-        auto a=juce::Rectangle<float>(.5f,.5f,float(width)-1.f,float(height)-1.f);
-        g.setColour(juce::Colours::black.withAlpha(.33f));
-        g.fillRoundedRectangle(a.translated(0.f,1.8f),5.f);
-        g.setGradientFill(juce::ColourGradient(
-            juce::Colour(0xff374a59),a.getX(),a.getY(),
-            juce::Colour(0xff13232f),a.getX(),a.getBottom(),false));
-        g.fillRoundedRectangle(a,5.f);
-        g.setColour(juce::Colour(0xff7d91a0).withAlpha(box.isMouseOverOrDragging()?.78f:.42f));
-        g.drawRoundedRectangle(a.reduced(.6f),5.f,1.f);
-        const float x=width-11.f,y=height*.5f;
-        juce::Path arrow;
-        arrow.startNewSubPath(x-3.3f,y-1.f);
-        arrow.lineTo(x+3.3f,y-1.f);
-        arrow.lineTo(x,y+2.8f);
-        arrow.closeSubPath();
-        g.setColour(isButtonDown?aqua:copper);
-        g.fillPath(arrow);
+        foundry::combo(g,juce::Rectangle<float>(.5f,.5f,float(width)-1.f,
+                                                float(height)-1.f),pressed);
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button,
                               const juce::Colour&, bool hovered, bool pressed) override
     {
-        auto a=button.getLocalBounds().toFloat().reduced(1.3f,2.f);
         const auto base=button.findColour(juce::TextButton::buttonColourId);
-        g.setColour(juce::Colours::black.withAlpha(.48f));
-        g.fillRoundedRectangle(a.translated(0.f,2.f),6.f);
-        g.setGradientFill(juce::ColourGradient(
-           base.brighter(hovered?.43f:.26f),a.getX(),a.getY(),
-           base.darker(pressed?.35f:.18f),a.getX(),a.getBottom(),false));
-        g.fillRoundedRectangle(a,6.f);
-        g.setColour((hovered?aqua:copper).withAlpha(hovered?.88f:.32f));
-        g.drawRoundedRectangle(a.reduced(.6f),6.f,1.1f);
-        g.setColour(juce::Colours::white.withAlpha(.12f));
-        g.drawLine(a.getX()+5.f,a.getY()+2.5f,a.getRight()-5.f,a.getY()+2.5f,.8f);
+        foundry::pushButton(g,button.getLocalBounds().toFloat().reduced(1.f,2.f),
+                            base,hovered,pressed);
     }
 
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
@@ -164,6 +71,7 @@ public:
 // Retain the full-precision DSP parameters; only the compact readout changes.
 juce::String formatParameterValue(const juce::String& id, double value)
 {
+    if (std::abs(value) < .0005) value=0.; // Round near-zero floating-point residue.
     const bool frequency = id.contains("freq") || id.endsWith("_hz");
     const bool percentage = id.contains("mix") || id.contains("percent")
                          || id == "limiter_stereo_link";
@@ -221,10 +129,10 @@ public:
                                                  .replace("Attenuation", "Atten")
                                                  .replace("Oversampling", "OS");
         title.setText(name.toUpperCase(), juce::dontSendNotification);
-        title.setFont(juce::Font(juce::FontOptions(10.1f)));
+        title.setFont(juce::Font(juce::FontOptions(10.8f)));
         setComponentID(id);
         title.setJustificationType(juce::Justification::centred);
-        title.setColour(juce::Label::textColourId, secondaryText);
+        title.setColour(juce::Label::textColourId, foundry::ivory);
         title.setInterceptsMouseClicks(false, false);
         addAndMakeVisible(title);
 
@@ -273,24 +181,15 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        const auto area=getLocalBounds().toFloat().reduced(1.5f);
-        g.setColour(juce::Colours::black.withAlpha(.22f));
-        g.fillRoundedRectangle(area.translated(0.f,1.5f),5.5f);
-        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff20313e),area.getX(),area.getY(),
-                                              juce::Colour(0xff101d29),area.getRight(),area.getBottom(),false));
-        g.fillRoundedRectangle(area,5.5f);
-        g.setColour(juce::Colour(0xff718696).withAlpha(.24f));
-        g.drawRoundedRectangle(area.reduced(.5f),5.5f,.8f);
-        g.setColour(juce::Colour(0xffc6a77a).withAlpha(.12f));
-        g.drawLine(area.getX()+5.f,area.getY()+2.f,area.getRight()-5.f,area.getY()+2.f,.8f);
+        foundry::cell(g,getLocalBounds().toFloat().reduced(1.5f));
     }
 
     void resized() override
     {
         const int w = getWidth();
         const int h = getHeight();
-        title.setBounds(2, 3, w - 4, 13);
-        if (knob) knob->setBounds(3, 16, w - 6, h - 18);
+        title.setBounds(2, 2, w - 4, 13);
+        if (knob) knob->setBounds(2, 14, w - 4, h - 16);
         if (combo) combo->setBounds(4, 31, w - 8, 29);
         if (toggle) toggle->setBounds(4, 31, w - 8, 29);
     }
@@ -368,49 +267,23 @@ public:
     void paint(juce::Graphics& g) override
     {
         const auto area=getLocalBounds().toFloat().reduced(1.f);
-        const auto tint=(index==2||index==5||index==10) ? copper :
-                        ((index==3||index==4||index==7) ? aqua :
-                         juce::Colour(0xffd0ae86));
-        g.setColour(juce::Colours::black.withAlpha(.40f));
-        g.fillRoundedRectangle(area.translated(0.f,1.5f),8.f);
-        g.setGradientFill(juce::ColourGradient(
-            juce::Colour(0xff31424d),0.f,0.f,
-            juce::Colour(0xff111c28),float(getWidth()),float(getHeight()),false));
-        g.fillRoundedRectangle(area,8.f);
-        // A restrained, brushed-titanium highlight, kept behind the controls.
-        g.setColour(juce::Colours::white.withAlpha(.065f));
-        g.drawLine(10.f,2.f,float(getWidth()-10),2.f,.85f);
-        g.setColour(juce::Colours::black.withAlpha(.35f));
-        g.drawLine(9.f,float(getHeight()-3),float(getWidth()-9),float(getHeight()-3),.9f);
-        g.setColour(isActive?tint.withAlpha(.78f):juce::Colour(0xff566979).withAlpha(.68f));
-        g.drawRoundedRectangle(area.reduced(.5f),8.f,isActive?1.3f:.85f);
-        g.setColour(tint.withAlpha(isActive?.12f:.035f));
-        g.fillRoundedRectangle(juce::Rectangle<float>(3.f,5.f,196.f,float(getHeight()-10)),6.f);
+        const float t=float(juce::Time::getMillisecondCounterHiRes()*.001);
+        foundry::moduleSurface(g,area,index,isActive,t);
 
-        // Solid rack identity block + illuminated channel status.
-
-        g.setColour(isActive ? tint : tint.withAlpha(0.42f));
-        g.fillRoundedRectangle(juce::Rectangle<float>(9.f, 12.f, 3.f,
-                                float(getHeight() - 24)), 1.5f);
-        g.setColour(juce::Colours::black.withAlpha(.68f));
-        g.fillEllipse(juce::Rectangle<float>(163.f,13.f,10.f,10.f));
-        g.setColour(isActive?tint:juce::Colour(0xff465764));
-        g.fillEllipse(juce::Rectangle<float>(165.f,15.f,6.f,6.f));
-        if(isActive)
-        {
-            g.setColour(tint.withAlpha(.20f));
-            g.drawEllipse(juce::Rectangle<float>(161.f,11.f,14.f,14.f),1.8f);
-        }
-        g.setColour(juce::Colour(0xfff0f4f5));
-        g.setFont(juce::Font(juce::FontOptions(16.8f)));
-        g.drawFittedText(title, 18, 9, 147, 25, juce::Justification::centredLeft, 1);
-        g.setColour(secondaryText.brighter(.10f));
-        g.setFont(juce::Font(juce::FontOptions(10.0f)));
-        g.drawFittedText(description.toUpperCase(), 18, 34, 158, 16,
-                         juce::Justification::centredLeft, 1);
-        g.setColour(isActive ? aqua : juce::Colour(0xff8298a6));
+        g.setColour(foundry::copper.withAlpha(.84f));
+        g.setFont(juce::Font(juce::FontOptions(11.f)));
+        g.drawFittedText(juce::String(index).paddedLeft('0',2),20,11,22,18,
+                         juce::Justification::centredLeft,1);
+        g.setColour(foundry::ivory);
+        g.setFont(juce::Font(juce::FontOptions(15.0f)));
+        g.drawFittedText(title,42,10,110,26,juce::Justification::centredLeft,1);
+        g.setColour(foundry::muted);
         g.setFont(juce::Font(juce::FontOptions(9.5f)));
-        g.drawText(isActive ? "ACTIVE" : "BYPASSED", 18, 52, 92, 16,
+        g.drawFittedText(description.toUpperCase(),19,36,135,14,
+                         juce::Justification::centredLeft,1);
+        g.setColour(isActive?foundry::teal:foundry::muted.withAlpha(.6f));
+        g.setFont(juce::Font(juce::FontOptions(9.3f)));
+        g.drawText(isActive?"ACTIVE":"BYPASSED",19,52,92,15,
                    juce::Justification::centredLeft);
 
         const auto printReduction = [&](const juce::String& label, float value)
@@ -430,14 +303,20 @@ public:
             reduction = printReduction("GR ", processor.limiterReductionDb.load(std::memory_order_relaxed));
         if (reduction.isNotEmpty())
         {
-            g.setColour(copper);
+            g.setColour(foundry::gold);
             g.drawFittedText(reduction, 94, 52, 91, 16,
                              juce::Justification::centredRight, 1);
             const auto drawGR = [&](float value, float x, float width) {
-                g.setColour(juce::Colour(0xff0b1925));
-                g.fillRoundedRectangle(x, 74.f, width, 6.f, 2.f);
-                g.setColour(isActive ? aqua : secondaryText.withAlpha(0.45f));
-                g.fillRoundedRectangle(x, 74.f, width * juce::jlimit(0.f, 1.f, std::abs(value) / 18.f), 6.f, 2.f);
+                g.setColour(foundry::black);
+                g.fillRoundedRectangle(x,74.f,width,5.f,2.f);
+                const float amount=width*juce::jlimit(0.f,1.f,std::abs(value)/18.f);
+                if(amount>.05f){
+                    g.setGradientFill(juce::ColourGradient(isActive?foundry::teal:foundry::bronze,
+                                      x,74.f,foundry::gold,x+amount,79.f,false));
+                    g.fillRoundedRectangle(x,74.f,amount,5.f,1.6f);
+                }
+                g.setColour(foundry::bronze);
+                g.drawRoundedRectangle(x,74.f,width,5.f,2.f,.7f);
             };
             if (index == 2) {
                 drawGR(processor.oceanReductionDb.load(std::memory_order_relaxed), 18.f, 77.f);
@@ -593,7 +472,7 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
     // The rack and all its interactive child components get one shared transform.
     setResizable(true, true);
     setResizeLimits(900, 580, 1800, 1200);
-    setSize(1220, 835);
+    setSize(1370, 960);
     startTimerHz(25);
 }
 
@@ -607,97 +486,20 @@ SteamMasterEditor::~SteamMasterEditor()
 void SteamMasterEditor::drawMeter(juce::Graphics& g, juce::Rectangle<float> area,
                                  float peak, float held) const
 {
-    // Bezel, recessed black glass and subtle illumination around the VU strip.
-    g.setColour(juce::Colours::black.withAlpha(.52f));
-    g.fillRoundedRectangle(area.expanded(2.f).translated(0.f,1.f),4.f);
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff132a35),
-                                          area.getX(),area.getY(),
-                                          juce::Colour(0xff07121d),
-                                          area.getX(),area.getBottom(),false));
-    g.fillRoundedRectangle(area,3.f);
-    g.setColour(juce::Colour(0xff637c88).withAlpha(.42f));
-    g.drawRoundedRectangle(area.expanded(1.f),3.f,.9f);
-    const auto asPosition = [](float amplitude)
-    {
-        const float dB = juce::Decibels::gainToDecibels(juce::jmax(0.000001f, amplitude));
-        return juce::jlimit(0.f, 1.f, (dB + 60.f) / 60.f);
-    };
-    const float fraction = asPosition(peak), heldFraction = asPosition(held);
-    if (fraction > 0.001f)
-    {
-        auto fill = area.reduced(1.f);
-        fill.setWidth((fill.getWidth() - 1.f) * fraction);
-        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff3bcbaa),
-                            fill.getX(),fill.getY(),
-                            fraction>.94f?juce::Colour(0xfff2a072):juce::Colour(0xffe1bb83),
-                            fill.getRight(),fill.getBottom(),false));
-        g.fillRoundedRectangle(fill,2.f);
-        g.setColour(juce::Colours::white.withAlpha(.23f));
-        g.drawLine(fill.getX()+1.f,fill.getY()+1.f,fill.getRight()-1.f,fill.getY()+1.f,.7f);
-    }
-    for (const float dB : {-48.f, -24.f, -12.f, -6.f})
-    {
-        const float x = area.getX() + (dB + 60.f)/60.f*area.getWidth();
-        g.setColour(juce::Colours::black.withAlpha(0.35f));
-        g.drawLine(x, area.getY(), x, area.getBottom(), 0.8f);
-    }
-    if (heldFraction > 0.01f)
-    {
-        const float x = area.getX() + heldFraction*area.getWidth();
-        g.setColour(juce::Colours::white.withAlpha(0.8f));
-        g.drawLine(x, area.getY() + 1.f, x, area.getBottom()-1.f, 1.2f);
-    }
-    g.setColour(juce::Colour(0xff364e5a));
-    g.drawRoundedRectangle(area, 3.f, 0.8f);
+    foundry::meter(g,area,peak,held);
 }
 
 void SteamMasterEditor::paint(juce::Graphics& g)
 {
     const auto bounds = getLocalBounds().toFloat();
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff14232e),0.f,0.f,
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff273534),0.f,0.f,
                                           background,bounds.getRight(),bounds.getBottom(),false));
     g.fillAll();
     juce::Graphics::ScopedSaveState state(g);
     g.addTransform(juce::AffineTransform::scale(uiScale).translated(uiOffsetX,uiOffsetY));
 
-    // Fixed 1440-unit header: the complete hardware rack still scales together.
-    const auto header=juce::Rectangle<float>(2.f,2.f,float(designWidth-4),65.f);
-    g.setColour(juce::Colours::black.withAlpha(.36f));
-    g.fillRoundedRectangle(header.translated(0.f,2.f),8.f);
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff344955),0.f,0.f,
-                                          juce::Colour(0xff101b27),0.f,68.f,false));
-    g.fillRoundedRectangle(header,8.f);
-    g.setColour(juce::Colour(0xffb89b75).withAlpha(.74f));
-    g.fillRect(4,2,designWidth-8,2);
-    g.setColour(juce::Colour(0xffa2b4ba).withAlpha(.23f));
-    g.drawRoundedRectangle(header.reduced(.6f),8.f,1.f);
-    g.setColour(juce::Colours::black.withAlpha(.30f));
-    g.drawLine(5.f,67.f,float(designWidth-5),67.f,1.1f);
-
-    // Engraved brand type, understated gold trim and turquoise edition name.
-    g.setColour(juce::Colours::black.withAlpha(.70f));
-    g.setFont(juce::Font(juce::FontOptions(26.f)));
-    g.drawText("STEAMMASTER",20,13,246,34,juce::Justification::centredLeft);
-    g.setColour(juce::Colour(0xfff1eee5));
-    g.drawText("STEAMMASTER",19,11,246,34,juce::Justification::centredLeft);
-    g.setColour(aqua);
-    g.setFont(juce::Font(juce::FontOptions(25.f)));
-    g.drawText("EZ",263,11,52,34,juce::Justification::centredLeft);
-    g.setColour(juce::Colour(0xffabbecc));
-    g.setFont(juce::Font(juce::FontOptions(10.f)));
-    g.drawText("PRECISION MASTERING  /  NATIVE DIGITAL EDITION",22,44,490,16,
-               juce::Justification::centredLeft);
-    g.setColour(copper.withAlpha(.60f));
-    g.drawLine(320.f,17.f,320.f,51.f,.8f);
-    g.setColour(juce::Colour(0xff152530));
-    for(const float xScrew : {11.f,float(designWidth-11)})
-    {
-        g.fillEllipse(xScrew-2.8f,32.f,5.6f,5.6f);
-        g.setColour(juce::Colour(0xffa9a29a).withAlpha(.8f));
-        g.drawEllipse(xScrew-2.8f,32.f,5.6f,5.6f,.9f);
-        g.drawLine(xScrew-1.5f,35.f,xScrew+1.5f,34.f,.7f);
-        g.setColour(juce::Colour(0xff152530));
-    }
+    // Fully bespoke Foundry header; keep original coordinates/hit areas.
+    foundry::header(g,float(designWidth));
 
     const int x = designWidth - 485;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
@@ -815,8 +617,8 @@ void SteamMasterEditor::resized()
     compareB.setBounds(juce::Rectangle<float>(694.f, 18.f, 54.f, 31.f)
                            .transformedBy(scaled).getSmallestIntegerContainer());
     compareA.setColour(juce::TextButton::buttonColourId,
-                       currentComparison == 0 ? juce::Colour(0xff185b59) : juce::Colour(0xff263a49));
+                       currentComparison == 0 ? juce::Colour(0xff24685e) : juce::Colour(0xff40392c));
     compareB.setColour(juce::TextButton::buttonColourId,
-                       currentComparison == 1 ? juce::Colour(0xff185b59) : juce::Colour(0xff263a49));
+                       currentComparison == 1 ? juce::Colour(0xff24685e) : juce::Colour(0xff40392c));
     repaint();
 }
