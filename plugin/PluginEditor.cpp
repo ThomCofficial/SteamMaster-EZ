@@ -17,18 +17,18 @@ class EzLookAndFeel final : public juce::LookAndFeel_V4
 public:
     EzLookAndFeel()
     {
-        setColour(juce::ComboBox::textColourId, juce::Colours::white);
-        setColour(juce::ComboBox::arrowColourId, copper);
+        setColour(juce::ComboBox::textColourId, foundry::ivory);
+        setColour(juce::ComboBox::arrowColourId, foundry::ivory);
         setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
-        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff1b292b));
+        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff202932));
         setColour(juce::Label::textColourId, secondaryText);
-        setColour(juce::Slider::textBoxTextColourId, juce::Colour(0xfff5e6c9));
-        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff182224));
+        setColour(juce::Slider::textBoxTextColourId, foundry::ivory);
+        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff111820));
         setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-        setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff1a2222));
-        setColour(juce::PopupMenu::textColourId, juce::Colours::white);
-        setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xff435747));
-        setColour(juce::ScrollBar::thumbColourId, juce::Colour(0xffad8951));
+        setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff1c242d));
+        setColour(juce::PopupMenu::textColourId, foundry::ivory);
+        setColour(juce::PopupMenu::highlightedBackgroundColourId, juce::Colour(0xff344755));
+        setColour(juce::ScrollBar::thumbColourId, juce::Colour(0xff647686));
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -136,7 +136,7 @@ public:
         title.setFont(juce::Font(juce::FontOptions(10.8f)));
         setComponentID(id);
         title.setJustificationType(juce::Justification::centred);
-        title.setColour(juce::Label::textColourId, foundry::ivory);
+        title.setColour(juce::Label::textColourId, foundry::muted);
         title.setInterceptsMouseClicks(false, false);
         addAndMakeVisible(title);
 
@@ -282,13 +282,13 @@ public:
         const float t=float(juce::Time::getMillisecondCounterHiRes()*.001);
         foundry::moduleSurface(g,area,index,isActive,t);
 
-        // Actual engraved brass title plaque: warm dark lettering belongs
-        // on the bright metal, unlike the old white-on-brown digital label.
-        g.setColour(juce::Colour(0xff30180b));
-        g.setFont(juce::Font(juce::FontOptions(14.1f)));
-        g.drawFittedText(title,22,11,127,23,juce::Justification::centredLeft,1);
+        // Neutral high-contrast typography: only the status and rail
+        // carry this module's signature accent colour.
         const auto accent=foundry::moduleAccent(index);
-        g.setColour(accent.brighter(.08f));
+        g.setColour(foundry::ivory);
+        g.setFont(juce::Font(juce::FontOptions(14.3f)));
+        g.drawFittedText(title,18,9,133,24,juce::Justification::centredLeft,1);
+        g.setColour(foundry::muted);
         g.setFont(juce::Font(juce::FontOptions(9.5f)));
         g.drawFittedText(description.toUpperCase(),19,36,135,14,
                          juce::Justification::centredLeft,1);
@@ -322,11 +322,10 @@ public:
                 g.fillRoundedRectangle(x,74.f,width,5.f,2.f);
                 const float amount=width*juce::jlimit(0.f,1.f,std::abs(value)/18.f);
                 if(amount>.05f){
-                    g.setGradientFill(juce::ColourGradient(isActive?accent:foundry::bronze,
-                                      x,74.f,foundry::gold,x+amount,79.f,false));
+                    g.setColour(isActive?accent:foundry::bronze);
                     g.fillRoundedRectangle(x,74.f,amount,5.f,1.6f);
                 }
-                g.setColour(foundry::bronze);
+                g.setColour(foundry::muted.withAlpha(.42f));
                 g.drawRoundedRectangle(x,74.f,width,5.f,2.f,.7f);
             };
             if (index == 2) {
@@ -373,8 +372,8 @@ public:
             for (size_t i = 1; i < groups.size(); ++i)
             {
                 const float x = float(controlLeft) + slot * float(groups[i].second);
-                g.setColour(copper.withAlpha(0.45f));
-                g.drawLine(x - 2.f, 12.f, x - 2.f, float(getHeight() - 12), 1.5f);
+                g.setColour(foundry::muted.withAlpha(.26f));
+                g.drawLine(x - 2.f, 12.f, x - 2.f, float(getHeight() - 12), 1.f);
             }
         }
     }
@@ -503,7 +502,7 @@ void SteamMasterEditor::drawMeter(juce::Graphics& g, juce::Rectangle<float> area
 void SteamMasterEditor::paint(juce::Graphics& g)
 {
     const auto bounds = getLocalBounds().toFloat();
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff273534),0.f,0.f,
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff222b35),0.f,0.f,
                                           background,bounds.getRight(),bounds.getBottom(),false));
     g.fillAll();
     juce::Graphics::ScopedSaveState state(g);
@@ -543,7 +542,7 @@ void SteamMasterEditor::paint(juce::Graphics& g)
         g.drawFittedText(peakDb < -59.f ? "-inf" : juce::String(peakDb, 1),
                          sx + 169, sy, 42, 13, juce::Justification::centredRight, 1);
     }
-    g.setColour(juce::Colour(0xff354854));
+    g.setColour(juce::Colour(0xff414d5a));
     g.drawLine(10.f, float(headerHeight - 3), float(designWidth - 10),
                float(headerHeight - 3), 1.f);
 }
@@ -628,8 +627,8 @@ void SteamMasterEditor::resized()
     compareB.setBounds(juce::Rectangle<float>(694.f, 18.f, 54.f, 31.f)
                            .transformedBy(scaled).getSmallestIntegerContainer());
     compareA.setColour(juce::TextButton::buttonColourId,
-                       currentComparison == 0 ? juce::Colour(0xff24685e) : juce::Colour(0xff40392c));
+                       currentComparison == 0 ? juce::Colour(0xff276f78) : juce::Colour(0xff323c47));
     compareB.setColour(juce::TextButton::buttonColourId,
-                       currentComparison == 1 ? juce::Colour(0xff24685e) : juce::Colour(0xff40392c));
+                       currentComparison == 1 ? juce::Colour(0xff276f78) : juce::Colour(0xff323c47));
     repaint();
 }
