@@ -188,7 +188,7 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        foundry::cell(g,getLocalBounds().toFloat().reduced(1.5f),knob != nullptr);
+        foundry::cell(g,getLocalBounds().toFloat().reduced(1.5f));
     }
 
     void resized() override
