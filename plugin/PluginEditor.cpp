@@ -274,13 +274,11 @@ public:
         const float t=float(juce::Time::getMillisecondCounterHiRes()*.001);
         foundry::moduleSurface(g,area,index,isActive,t);
 
-        g.setColour(foundry::copper.withAlpha(.84f));
-        g.setFont(juce::Font(juce::FontOptions(11.f)));
-        g.drawFittedText(juce::String(index).paddedLeft('0',2),20,11,22,18,
-                         juce::Justification::centredLeft,1);
-        g.setColour(foundry::ivory);
-        g.setFont(juce::Font(juce::FontOptions(15.0f)));
-        g.drawFittedText(title,42,10,110,26,juce::Justification::centredLeft,1);
+        // Actual engraved brass title plaque: warm dark lettering belongs
+        // on the bright metal, unlike the old white-on-brown digital label.
+        g.setColour(juce::Colour(0xff30180b));
+        g.setFont(juce::Font(juce::FontOptions(14.1f)));
+        g.drawFittedText(title,22,11,127,23,juce::Justification::centredLeft,1);
         g.setColour(foundry::muted);
         g.setFont(juce::Font(juce::FontOptions(9.5f)));
         g.drawFittedText(description.toUpperCase(),19,36,135,14,

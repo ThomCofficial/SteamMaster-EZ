@@ -3,6 +3,7 @@
 // An original, entirely self-contained JUCE vector skin.
 // No embedded bitmaps, third-party artwork, fonts, images or DSP changes.
 #include <juce_audio_utils/juce_audio_utils.h>
+#include "MaterialAtlas.h"
 #include <cmath>
 
 namespace foundry
@@ -88,24 +89,28 @@ inline void gear(juce::Graphics& g,float cx,float cy,float r,float phase=0.f)
 inline void rivetedPlate(juce::Graphics& g,juce::Rectangle<float> a,float corner,
                          juce::Colour top,juce::Colour bottom)
 {
-    g.setColour(juce::Colours::black.withAlpha(.63f));
-    g.fillRoundedRectangle(a.translated(0.f,2.f),corner);
+    g.setColour(juce::Colours::black.withAlpha(.9f));
+    g.fillRoundedRectangle(a.translated(0.f,2.1f).expanded(1.3f),corner);
+    // Solid iron chassis with real pixel-level surface variation.
     gradient(g,a,corner,top,bottom);
-    g.setColour(bronze.withAlpha(.94f));g.drawRoundedRectangle(a.reduced(.5f),corner,1.1f);
-    g.setColour(gold.withAlpha(.30f));g.drawRoundedRectangle(a.reduced(2.f),corner-1.f,.7f);
-    // Restrained horizontal brushed texture only, clipped safely away from corners.
-    const float left=a.getX()+corner+3.f,right=a.getRight()-corner-3.f;
-    if(right>left)
-      for(float yy=a.getY()+corner+1.f;yy<a.getBottom()-corner-1.f;yy+=3.5f)
-      {
-          g.setColour((int(yy*2)%2?ivory:juce::Colours::black).withAlpha(.023f));
-          g.drawLine(left,yy,right,yy,.55f);
-      }
-    const float ss=2.6f;
-    screw(g,a.getX()+8.f,a.getY()+8.f,ss);
-    screw(g,a.getRight()-8.f,a.getY()+8.f,ss,true);
-    screw(g,a.getX()+8.f,a.getBottom()-8.f,ss,true);
-    screw(g,a.getRight()-8.f,a.getBottom()-8.f,ss);
+    atelier::fill(g,a.reduced(.6f),corner,atelier::Material::forgedIron,.85f);
+    g.setColour(juce::Colours::black.withAlpha(.30f));
+    g.fillRoundedRectangle(a.reduced(3.f),juce::jmax(1.f,corner-2.f));
+    atelier::fill(g,a.reduced(4.f),juce::jmax(1.f,corner-2.f),
+                  atelier::Material::forgedIron,.74f);
+    g.setColour(juce::Colour(0xff090805));
+    g.drawRoundedRectangle(a.reduced(.4f),corner,2.f);
+    g.setColour(juce::Colour(0xffbd793d));
+    g.drawRoundedRectangle(a.reduced(1.3f),corner,1.65f);
+    g.setColour(juce::Colour(0xfff9dc99).withAlpha(.72f));
+    g.drawRoundedRectangle(a.reduced(2.8f),juce::jmax(1.f,corner-2.f),.82f);
+    g.setColour(juce::Colours::black.withAlpha(.6f));
+    g.drawLine(a.getX()+11.f,a.getBottom()-3.4f,a.getRight()-11.f,a.getBottom()-3.4f,1.2f);
+    // Aged brass mounting fasteners (fully programmatic).
+    for(int side=0;side<2;++side)
+       for(int v=0;v<2;++v)
+           screw(g,side?a.getRight()-8.f:a.getX()+8.f,
+                 v?a.getBottom()-8.f:a.getY()+8.f,2.6f,(side+v)%2==0);
 }
 
 inline void lamp(juce::Graphics& g,float x,float y,bool on,juce::Colour colour=teal)
@@ -240,54 +245,72 @@ inline void moduleSurface(juce::Graphics& g,juce::Rectangle<float> a,int index,b
     const auto bottom=index==4||index==8?juce::Colour(0xff241d16):iron;
     rivetedPlate(g,a,6.f,top,bottom);
 
-    // Hardware chassis: a full-width recessed instrument bay behind actual
-    // controls, not individual web-form-looking rectangles.
+    // Old-world forged instrument bay: genuinely textured blackened iron
+    // with a precise, thin, separately polished copper inlay.
     const auto instrument=juce::Rectangle<float>(208.f,5.f,a.getWidth()-215.f,a.getHeight()-10.f);
-    gradient(g,instrument,4.f,juce::Colour(0xff182023),juce::Colour(0xff101619));
-    g.setColour(juce::Colour(0xff0b0e10));g.drawRoundedRectangle(instrument,4.f,1.8f);
-    g.setColour(copper.withAlpha(.26f));g.drawLine(213.f,7.f,a.getRight()-10.f,7.f,.8f);
-    g.setColour(juce::Colours::black.withAlpha(.35f));g.drawLine(213.f,a.getBottom()-8.f,a.getRight()-10.f,a.getBottom()-8.f,1.2f);
+    gradient(g,instrument,4.f,juce::Colour(0xff1a1813),juce::Colour(0xff090c0c));
+    atelier::fill(g,instrument.reduced(1.f),3.6f,atelier::Material::forgedIron,1.f);
+    g.setColour(juce::Colours::black.withAlpha(.6f));
+    g.drawRoundedRectangle(instrument.reduced(.2f),4.f,2.f);
+    g.setColour(juce::Colour(0xffc38645).withAlpha(.61f));
+    g.drawRoundedRectangle(instrument.reduced(1.8f),3.2f,.72f);
 
+    // The processor nameplate is aged walnut, while its embossed title
+    // plaque is pale enamel. All text stays rendered in JUCE.
     const auto label=juce::Rectangle<float>(5.f,6.f,196.f,a.getHeight()-12.f);
-    gradient(g,label,4.f,juce::Colour(0xff3a3123),juce::Colour(0xff1d211f));
-    g.setColour(bronze);g.drawRoundedRectangle(label,4.f,1.2f);
-    g.setColour(gold.withAlpha(.46f));g.drawRoundedRectangle(label.reduced(2.f),3.f,.5f);
-    g.setColour(accent.withAlpha(.85f));g.fillRoundedRectangle(15.f,13.f,2.5f,27.f,1.f);
-    g.setColour(black.withAlpha(.8f));g.fillRoundedRectangle(155.f,14.f,35.f,34.f,4.f);
-    g.setColour(bronze);g.drawRoundedRectangle(155.f,14.f,35.f,34.f,4.f,.7f);
-    icon(g,index,172.5f,31.f,active,t);
+    atelier::fill(g,label,4.f,atelier::Material::smokedWalnut);
+    g.setColour(juce::Colours::black.withAlpha(.85f));
+    g.drawRoundedRectangle(label,4.f,2.f);
+    g.setColour(gold.withAlpha(.64f));
+    g.drawRoundedRectangle(label.reduced(1.7f),3.f,1.f);
+    const auto engraving=juce::Rectangle<float>(17.f,10.f,135.f,24.f);
+    gradient(g,engraving,4.f,juce::Colour(0xffffe5b6),juce::Colour(0xffac8050));
+    atelier::fill(g,engraving.reduced(.8f),3.f,atelier::Material::satinBrass,.22f);
+    g.setColour(juce::Colour(0xff4d2912));
+    g.drawRoundedRectangle(engraving,4.f,1.25f);
+    g.setColour(ivory.withAlpha(.7f));
+    g.drawLine(engraving.getX()+5.f,engraving.getY()+2.f,
+               engraving.getRight()-5.f,engraving.getY()+2.f,.65f);
+
+    const auto motif=juce::Rectangle<float>(156.f,14.f,34.f,34.f);
+    g.setColour(black.withAlpha(.86f));g.fillRoundedRectangle(motif,3.5f);
+    g.setColour(copper.withAlpha(.74f));g.drawRoundedRectangle(motif,3.5f,1.f);
+    icon(g,index,173.f,31.f,active,t);
     screw(g,11.5f,9.f,2.f);screw(g,194.5f,9.f,2.f,true);
     screw(g,11.5f,a.getBottom()-9.f,2.f,true);
     screw(g,194.5f,a.getBottom()-9.f,2.f);
-    g.setColour(gold.withAlpha(.4f));g.drawLine(21.f,48.f,151.f,48.f,.7f);
-    g.setColour(juce::Colours::black.withAlpha(.65f));g.drawLine(205.f,7.f,205.f,a.getBottom()-7.f,2.f);
-    g.setColour(copper.withAlpha(.75f));g.drawLine(207.f,8.f,207.f,a.getBottom()-8.f,.9f);
+    g.setColour(gold.withAlpha(.5f));g.drawLine(17.f,49.f,152.f,49.f,.75f);
+    g.setColour(juce::Colours::black.withAlpha(.82f));
+    g.drawLine(204.f,6.f,204.f,a.getBottom()-6.f,2.f);
+    g.setColour(copper.withAlpha(.76f));
+    g.drawLine(206.f,7.f,206.f,a.getBottom()-7.f,1.f);
 
-    // One intentional piece of machining per processor rather than a repeated skin.
-    if(index==2||index==5) {
-        g.setColour(copper.withAlpha(.35f));
-        for(int i=0;i<5;++i)g.drawLine(1210.f+float(i)*7.f,9.f,1210.f+float(i)*7.f,14.f,.75f);
-    } else if(index==8) {
-        for(int i=0;i<7;++i){
-            g.setColour(bronze.withAlpha(.27f));
-            g.drawLine(1210.f+float(i)*5.f,12.f,1210.f+float(i)*5.f+3.f,8.f,.7f);
+    // A short engraving specific to the compression/recording hardware.
+    if(index==2||index==5)
+    {
+        for(int i=0;i<5;++i){
+            g.setColour(copper.withAlpha(.45f));
+            g.drawLine(1210.f+float(i)*7.f,9.f,1210.f+float(i)*7.f,14.f,.75f);
         }
     }
     if(active){
-        g.setColour(accent.withAlpha(.4f));
-        g.fillRoundedRectangle(4.f,a.getBottom()-4.f,193.f,1.2f,.4f);
+        g.setColour(accent.withAlpha(.63f));
+        g.fillRoundedRectangle(6.f,a.getBottom()-5.f,193.f,1.6f,.5f);
     }
 }
 
 inline void cell(juce::Graphics& g,juce::Rectangle<float> a)
 {
-    // Slim raised bezels: keep the entire panel readable, not a card for every knob.
-    g.setColour(juce::Colours::black.withAlpha(.32f));
-    g.fillRoundedRectangle(a.translated(0.f,1.f),3.f);
-    gradient(g,a,3.f,juce::Colour(0xff303639),juce::Colour(0xff1b2427));
-    g.setColour(gold.withAlpha(.13f));g.drawRoundedRectangle(a.reduced(.6f),3.f,.65f);
-    g.setColour(juce::Colours::black.withAlpha(.2f));
-    g.drawLine(a.getX()+4.f,a.getBottom()-3.f,a.getRight()-4.f,a.getBottom()-3.f,.8f);
+    g.setColour(juce::Colours::black.withAlpha(.71f));
+    g.fillRoundedRectangle(a.translated(0.f,1.6f),3.5f);
+    atelier::fill(g,a,3.3f,atelier::Material::forgedIron,1.f);
+    // Recessed ebony enamel beneath the hardware controls.
+    g.setColour(juce::Colours::black.withAlpha(.35f));
+    g.fillRoundedRectangle(a.reduced(1.8f),2.f);
+    g.setColour(juce::Colour(0xffbd8745).withAlpha(.49f));
+    g.drawRoundedRectangle(a.reduced(.4f),3.3f,.9f);
+    g.setColour(ivory.withAlpha(.10f));
+    g.drawLine(a.getX()+4.f,a.getY()+2.f,a.getRight()-4.f,a.getY()+2.f,.6f);
 }
 
 inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
@@ -321,25 +344,13 @@ inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
 
     const auto disc=juce::Rectangle<float>(cx-r,cy-r,2*r,2*r);
     g.setColour(juce::Colours::black.withAlpha(.88f));
-    g.fillEllipse(disc.expanded(1.1f).translated(0.f,1.7f));
-    g.setGradientFill(juce::ColourGradient(gold,cx-r,cy-r,juce::Colour(0xff654323),cx+r,cy+r,false));
-    g.fillEllipse(disc);
-    g.setColour(ivory.withAlpha(.65f));g.drawEllipse(disc.reduced(.5f),.8f);
-
-    // Radially engraved knurling around the machined bezel.
-    for(int k=0;k<24;++k)
-    {
-        const float a=float(k)*juce::MathConstants<float>::twoPi/24.f;
-        g.setColour(black.withAlpha(.66f));
-        g.drawLine(cx+std::sin(a)*(r-2.9f),cy-std::cos(a)*(r-2.9f),
-                   cx+std::sin(a)*(r-.7f),cy-std::cos(a)*(r-.7f),.7f);
-    }
-    auto face=disc.reduced(3.5f);
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff526066),cx-r*.7f,cy-r*.8f,
-                                          juce::Colour(0xff151e22),cx+r*.7f,cy+r*.9f,false));
-    g.fillEllipse(face);
-    g.setColour(juce::Colour(0xff839294).withAlpha(.52f));
-    g.drawEllipse(face.reduced(.45f),.8f);
+    g.fillEllipse(disc.expanded(1.7f).translated(0.f,1.5f));
+    // A full-colour, separately rasterised physically-shaded brass/Bakelite
+    // knob face, rather than another JUCE gradient pretending to be metal.
+    // The indicator and ring stay native/parameter-driven.
+    g.drawImage(atelier::knob(),disc);
+    g.setColour(gold.withAlpha(.38f));
+    g.drawEllipse(disc.reduced(.4f),.7f);
 
     // Fine pointer engraved in the top plate, with real angular tracking.
     const float tx=cx+std::sin(angle)*r*.65f;
@@ -353,21 +364,22 @@ inline void rotary(juce::Graphics& g,int x,int y,int width,int height,float pos,
 
 inline void toggle(juce::Graphics& g,juce::Rectangle<float> a,bool on,bool highlighted,bool down)
 {
-    g.setColour(black.withAlpha(.80f));g.fillRoundedRectangle(a.translated(0.f,1.2f),4.f);
-    gradient(g,a,4.f,juce::Colour(0xff6d634d),juce::Colour(0xff332b24));
-    g.setColour(gold.withAlpha(.58f));g.drawRoundedRectangle(a,4.f,.8f);
-    const auto pocket=a.reduced(2.7f,3.2f);
-    gradient(g,pocket,2.2f,juce::Colour(0xff101719),juce::Colour(0xff070a0c));
-    const float switchX=on?pocket.getRight()-10.5f:pocket.getX()+1.5f;
-    const auto rocker=juce::Rectangle<float>(switchX,pocket.getY()+1.5f,9.f,pocket.getHeight()-3.f);
-    gradient(g,rocker,2.f,on?juce::Colour(0xffe7d3a1):juce::Colour(0xff94806b),
-             on?juce::Colour(0xff805e3a):juce::Colour(0xff46382a));
-    g.setColour(ivory.withAlpha(.56f));g.drawLine(rocker.getX()+2.f,rocker.getY()+2.f,
-                                                  rocker.getRight()-2.f,rocker.getY()+2.f,.8f);
+    g.setColour(black.withAlpha(.84f));
+    g.fillRoundedRectangle(a.translated(0.f,1.2f),3.5f);
+    atelier::fill(g,a,3.5f,atelier::Material::oldCopper,.98f);
+    g.setColour(gold.withAlpha(.77f));g.drawRoundedRectangle(a.reduced(.5f),3.5f,.9f);
+    const auto pocket=a.reduced(2.4f,3.f);
+    g.setColour(black);g.fillRoundedRectangle(pocket,2.5f);
+    g.setColour(bronze.withAlpha(.85f));g.drawRoundedRectangle(pocket,2.5f,.65f);
+    const float switchX=on?pocket.getRight()-12.f:pocket.getX()+2.f;
+    const auto rocker=juce::Rectangle<float>(switchX,pocket.getY()+1.8f,10.f,pocket.getHeight()-3.6f);
+    atelier::fill(g,rocker,1.8f,atelier::Material::satinBrass);
+    g.setColour(ivory.withAlpha(.72f));
+    g.drawLine(rocker.getX()+2.f,rocker.getY()+2.f,rocker.getRight()-2.f,rocker.getY()+2.f,.7f);
     lamp(g,on?pocket.getX()+8.f:pocket.getRight()-8.f,pocket.getCentreY(),on,
          highlighted?teal.brighter(.3f):teal);
-    g.setColour(ivory.withAlpha(down?.75f:.94f));
-    g.setFont(juce::Font(juce::FontOptions(8.8f)));
+    g.setColour(ivory.withAlpha(down?.72f:.95f));
+    g.setFont(juce::Font(juce::FontOptions(9.f)));
     g.drawFittedText(on?"ON":"OFF",pocket.reduced(11.f,0.f).toNearestInt(),
                      juce::Justification::centred,1);
 }
@@ -375,12 +387,14 @@ inline void toggle(juce::Graphics& g,juce::Rectangle<float> a,bool on,bool highl
 inline void combo(juce::Graphics& g,juce::Rectangle<float> a,bool pressed)
 {
     g.setColour(black);g.fillRoundedRectangle(a.translated(0.f,1.f),3.5f);
-    gradient(g,a,3.f,juce::Colour(0xff373d3c),juce::Colour(0xff1b2425));
-    g.setColour(copper.withAlpha(.63f));g.drawRoundedRectangle(a.reduced(.5f),3.f,.9f);
-    g.setColour(black);g.fillRoundedRectangle(a.getRight()-19.f,a.getY()+2.f,17.f,
-                                             a.getHeight()-4.f,2.f);
-    g.setColour(gold.withAlpha(.78f));g.drawLine(a.getRight()-20.f,a.getY()+3.f,
-                                                  a.getRight()-20.f,a.getBottom()-3.f,.7f);
+    atelier::fill(g,a,3.5f,atelier::Material::oldCopper,.82f);
+    g.setColour(gold.withAlpha(.75f));g.drawRoundedRectangle(a.reduced(.5f),3.5f,.85f);
+    const auto inset=a.reduced(2.3f);
+    g.setColour(black.withAlpha(.78f));g.fillRoundedRectangle(inset,2.5f);
+    g.setColour(copper.withAlpha(.48f));g.drawRoundedRectangle(inset,2.5f,.6f);
+    g.setColour(black);g.fillRoundedRectangle(a.getRight()-19.f,a.getY()+2.2f,17.f,a.getHeight()-4.4f,2.f);
+    g.setColour(gold.withAlpha(.75f));g.drawLine(a.getRight()-19.f,a.getY()+4.f,
+                                                  a.getRight()-19.f,a.getBottom()-4.f,.7f);
     const float xc=a.getRight()-10.5f,yc=a.getCentreY();
     juce::Path arrow;arrow.startNewSubPath(xc-3.4f,yc-1.1f);
     arrow.lineTo(xc+3.4f,yc-1.1f);arrow.lineTo(xc,yc+2.5f);arrow.closeSubPath();
@@ -389,11 +403,14 @@ inline void combo(juce::Graphics& g,juce::Rectangle<float> a,bool pressed)
 
 inline void pushButton(juce::Graphics& g,juce::Rectangle<float> a,juce::Colour base,bool hovered,bool down)
 {
-    g.setColour(juce::Colours::black.withAlpha(.7f));g.fillRoundedRectangle(a.translated(0.f,2.f),4.f);
-    gradient(g,a,4.f,base.brighter(hovered?.23f:.12f),base.darker(down?.38f:.22f));
-    g.setColour((hovered?ivory:gold).withAlpha(.8f));g.drawRoundedRectangle(a.reduced(.45f),4.f,1.f);
-    g.setColour(gold.withAlpha(.45f));g.drawLine(a.getX()+3.f,a.getY()+2.f,
-                                                 a.getRight()-3.f,a.getY()+2.f,.65f);
+    g.setColour(juce::Colours::black.withAlpha(.8f));
+    g.fillRoundedRectangle(a.translated(0.f,2.f),4.f);
+    atelier::fill(g,a,4.f,atelier::Material::oldCopper,.72f);
+    g.setColour(base.withAlpha(down?.60f:.45f));
+    g.fillRoundedRectangle(a.reduced(2.f),2.5f);
+    g.setColour(hovered?ivory:gold);g.drawRoundedRectangle(a.reduced(.45f),4.f,.9f);
+    g.setColour(gold.withAlpha(.45f));
+    g.drawLine(a.getX()+3.f,a.getY()+2.f,a.getRight()-3.f,a.getY()+2.f,.7f);
     screw(g,a.getX()+4.f,a.getCentreY(),1.2f);
     screw(g,a.getRight()-4.f,a.getCentreY(),1.2f,true);
 }
@@ -401,40 +418,49 @@ inline void pushButton(juce::Graphics& g,juce::Rectangle<float> a,juce::Colour b
 inline void header(juce::Graphics& g,float width)
 {
     const auto area=juce::Rectangle<float>(2.f,2.f,width-4.f,65.f);
-    rivetedPlate(g,area,7.f,juce::Colour(0xff4b5350),juce::Colour(0xff202527));
+    rivetedPlate(g,area,7.f,juce::Colour(0xff52321f),juce::Colour(0xff291c15));
+    // Glossy walnut veneer and double etched-brass piping from our concept.
+    const auto veneer=area.reduced(5.f);
+    atelier::fill(g,veneer,4.f,atelier::Material::smokedWalnut,.98f);
+    g.setColour(juce::Colour(0xffd7994a).withAlpha(.8f));
+    g.drawRoundedRectangle(veneer,4.f,.95f);
+    g.setColour(ivory.withAlpha(.24f));
+    g.drawLine(veneer.getX()+12.f,veneer.getY()+2.f,
+               veneer.getRight()-12.f,veneer.getY()+2.f,.95f);
 
-    // Logo cast into a dark-green enamel brass fascia.
     const auto brand=juce::Rectangle<float>(12.f,8.f,312.f,51.f);
-    gradient(g,brand,4.f,juce::Colour(0xff243f3b),juce::Colour(0xff0c1e1d));
+    g.setColour(juce::Colours::black.withAlpha(.85f));
+    g.fillRoundedRectangle(brand.translated(0.f,1.f),5.f);
+    atelier::fill(g,brand,4.f,atelier::Material::smokedWalnut,.95f);
     g.setColour(gold.withAlpha(.95f));g.drawRoundedRectangle(brand,4.f,1.5f);
-    g.setColour(copper.withAlpha(.75f));g.drawRoundedRectangle(brand.reduced(2.f),3.f,.55f);
+    g.setColour(copper.withAlpha(.65f));g.drawRoundedRectangle(brand.reduced(2.f),3.f,.65f);
     g.setFont(juce::Font(juce::FontOptions(25.f)));
     g.setColour(black);g.drawText("STEAMMASTER",21,10,244,31,juce::Justification::centredLeft);
     g.setColour(ivory);g.drawText("STEAMMASTER",20,9,244,31,juce::Justification::centredLeft);
-    g.setColour(gold);
+    g.setColour(teal);
     g.setFont(juce::Font(juce::FontOptions(24.f)));
     g.drawText("EZ",265,9,49,31,juce::Justification::centredLeft);
     g.setFont(juce::Font(juce::FontOptions(9.f)));
-    g.setColour(muted);g.drawText("THE MASTERING FOUNDRY",22,40,273,13,
-                                  juce::Justification::centredLeft);
+    g.setColour(ivory.withAlpha(.85f));
+    g.drawText("PRECISION MASTERING WORKS",22,40,273,13,juce::Justification::centredLeft);
 
-    // Full engineered logo: a forged gear, pressure line and serial plaque.
     gear(g,352.f,33.f,19.f);
-    g.setColour(gold.withAlpha(.72f));g.drawLine(376.f,32.f,405.f,32.f,1.25f);
+    g.setColour(gold.withAlpha(.76f));
+    g.drawLine(377.f,32.f,404.f,32.f,1.2f);
     ornament(g,379.f,18.f,29.f);
     g.setFont(juce::Font(juce::FontOptions(10.5f)));
     g.setColour(ivory);g.drawText("THOMC",408,13,105,20,juce::Justification::centredLeft);
     g.setFont(juce::Font(juce::FontOptions(9.f)));
-    g.setColour(muted);g.drawText("ATELIER No. 01",408,34,112,17,juce::Justification::centredLeft);
+    g.setColour(gold.withAlpha(.84f));
+    g.drawText("STEAM ENGINEERING",408,34,120,17,juce::Justification::centredLeft);
 
-    // Heavy bevel around existing RESET, A/B interactive buttons.
     const auto controls=juce::Rectangle<float>(528.f,11.f,229.f,44.f);
-    gradient(g,controls,5.f,juce::Colour(0xff171e20),juce::Colour(0xff0b1012));
-    g.setColour(copper.withAlpha(.65f));g.drawRoundedRectangle(controls,5.f,.8f);
-    screw(g,532.f,16.f,1.6f);screw(g,753.f,50.f,1.6f,true);
+    atelier::fill(g,controls,5.f,atelier::Material::forgedIron);
+    g.setColour(copper.withAlpha(.76f));g.drawRoundedRectangle(controls,5.f,.95f);
+    screw(g,533.f,16.f,1.8f);screw(g,752.f,50.f,1.8f,true);
 
     const auto metering=juce::Rectangle<float>(942.f,8.f,490.f,51.f);
-    gradient(g,metering,4.f,juce::Colour(0xff152123),juce::Colour(0xff0a1113));
+    atelier::fill(g,metering,4.f,atelier::Material::forgedIron,.88f);
     g.setColour(bronze);g.drawRoundedRectangle(metering,4.f,1.f);
     ornament(g,951.f,12.f,470.f);
 }
