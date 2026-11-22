@@ -79,7 +79,7 @@ void checkExciterHostSignalPath() {
     }
 }
 
-int main(){
+int runHostSmoke(){
   juce::ScopedJuceInitialiser_GUI juceInitialiser;
   std::cerr<<"HOST_STAGE: JUCE_INITIALIZED"<<std::endl;
   std::mt19937 rng(0x534d);
@@ -258,6 +258,8 @@ int main(){
                                                 {1350,705,270,73});
           const auto scopeDelta=pixelsDifferent(snapshot,animatedB,
                                                  {1337,789,260,58});
+          std::cerr<<"HOST_STAGE: PIXEL_DELTAS reel="<<reelDelta
+                   <<" scope="<<scopeDelta<<std::endl;
           if(reelDelta<12)
               throw std::runtime_error("tape reels did not animate in rendered editor");
           if(scopeDelta<12)
@@ -344,4 +346,17 @@ int main(){
   std::cerr<<"HOST_STAGE: EXCITER_BEGIN"<<std::endl;
   checkExciterHostSignalPath();
   std::cerr<<"HOST_STAGE: EXCITER_DONE"<<std::endl;
+  return 0;
+}
+
+int main() {
+    try {
+        return runHostSmoke();
+    } catch (const std::exception& ex) {
+        std::cerr<<"HOST_TEST_ASSERTION_FAILURE: "<<ex.what()<<std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr<<"HOST_TEST_UNKNOWN_EXCEPTION"<<std::endl;
+        return 2;
+    }
 }
