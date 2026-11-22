@@ -624,21 +624,21 @@ public:
         } else if(index==10) {
             const float raw=processor.limiterReductionDb.load(std::memory_order_relaxed);
             const float db=std::isfinite(raw) ? juce::jlimit(0.f,36.f,std::abs(raw)) : 0.f;
-            const juce::Rectangle<float> grPanel(122.f,44.f,157.f,27.f);
+            const juce::Rectangle<float> grPanel(122.f,38.f,157.f,27.f);
             g.setColour(juce::Colour(0xff1a080b).withAlpha(.89f));
             g.fillRoundedRectangle(grPanel,4.f);
             g.setColour(juce::Colour(0xffff6d6d).withAlpha(.52f));
             g.drawRoundedRectangle(grPanel,4.f,.9f);
             g.setFont(juce::Font(juce::FontOptions(10.2f)));
             g.setColour(juce::Colour(0xffffb9b0));
-            g.drawFittedText("GR",126,49,22,16,juce::Justification::centredLeft,1);
+            g.drawFittedText("GR",126,43,22,16,juce::Justification::centredLeft,1);
             const int lit=juce::jlimit(0,9,int(std::round(db*9.f/18.f)));
             for(int j=0;j<9;++j) {
                 g.setColour(j<lit ? juce::Colour(0xffff6b75) : juce::Colour(0xff4a1820));
-                g.fillRoundedRectangle(juce::Rectangle<float>(151.f+float(j)*5.5f,54.f,4.f,7.f),.8f);
+                g.fillRoundedRectangle(juce::Rectangle<float>(151.f+float(j)*5.5f,48.f,4.f,7.f),.8f);
             }
             g.setColour(juce::Colour(0xffffc7b7));
-            g.drawFittedText(juce::String(db,1)+" dB",204,49,72,16,
+            g.drawFittedText(juce::String(db,1)+" dB",204,43,72,16,
                              juce::Justification::centredRight,1);
         }
     }
