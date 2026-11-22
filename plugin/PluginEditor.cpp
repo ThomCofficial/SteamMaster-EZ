@@ -667,26 +667,31 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     // Locked original artwork; one affine transform for faceplate and UI controls.
     const auto faceplate=juce::ImageCache::getFromMemory(BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
     if(faceplate.isValid()) {
-        // Deterministic four-region horizontal expansion of the APPROVED
-        // faceplate. The left nameplates are protected from global stretching;
-        // the reel region stays almost 1:1 to preserve round tape hubs.
-        // Never regenerate or rescale approved PNGs with image generation.
-        const float sw=float(faceplate.getWidth()),sh=float(faceplate.getHeight());
-        const float originalHeader=sh*70.f/1013.f;
-        g.drawImage(faceplate,
-                    juce::Rectangle<float>(0.f,0.f,float(designWidth),float(headerHeight)),
-                    juce::Rectangle<float>(0.f,0.f,sw,originalHeader),false);
-        const float srcCuts[]{0.f,270.f,1050.f,1350.f,1440.f};
-        const float dstCuts[]{0.f,282.f,1350.f,1645.f,float(designWidth)};
-        for(int i=0;i<4;++i) {
-            const float sx=sw*srcCuts[i]/1440.f;
-            const float sx2=sw*srcCuts[i+1]/1440.f;
-            g.drawImage(faceplate,
-                        juce::Rectangle<float>(dstCuts[i],float(headerHeight),
-                                               dstCuts[i+1]-dstCuts[i],
-                                               float(designHeight-headerHeight)),
-                        juce::Rectangle<float>(sx,originalHeader,sx2-sx,sh-originalHeader),
-                        false);
+        // Deterministic assembly of the original approved faceplate.
+        // Every module has its own source/destination rectangle, preserving
+        // artwork module alignment without stretching the entire rack vertically.
+        // JUCE 8 uses the integer source/destination drawImage overload.
+        const int sw=faceplate.getWidth(),sh=faceplate.getHeight();
+        const auto sx=[&](int x) { return int(std::round(double(sw)*double(x)/1440.)); };
+        const auto sy=[&](int y) { return int(std::round(double(sh)*double(y)/1013.)); };
+        g.drawImage(faceplate,0,0,designWidth,headerHeight,
+                    0,0,sw,sy(70),false);
+        constexpr int sourceTops[]{82,180,266,356,435,518,596,672,750,831};
+        constexpr int sourceHeights[]{88,76,80,74,73,68,69,68,72,77};
+        constexpr int destTops[]{73,166,256,353,441,527,606,707,792,871};
+        constexpr int destHeights[]{84,82,89,80,81,74,94,78,76,70};
+        constexpr int sourceX[]{0,270,1120,1440};
+        constexpr int destX[]{0,282,1347,1672};
+        for(int module=0;module<10;++module) {
+            const int srcY=sy(sourceTops[module]);
+            const int srcH=sy(sourceTops[module]+sourceHeights[module])-srcY;
+            for(int part=0;part<3;++part) {
+                const int left=sx(sourceX[part]);
+                const int srcW=sx(sourceX[part+1])-left;
+                g.drawImage(faceplate,destX[part],destTops[module],
+                            destX[part+1]-destX[part],destHeights[module],
+                            left,srcY,srcW,srcH,false);
+            }
         }
     }
 
