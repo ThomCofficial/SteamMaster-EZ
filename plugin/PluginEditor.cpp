@@ -94,8 +94,11 @@ public:
         if(!img.isValid())return;
         // Larger hardware dial, still contained by its labelled JUCE cell.
         // Compensate for the horizontal text box and JUCE rotary drawing area.
-        const float targetScale=master ? 1.16f : compact ? 1.18f : 1.17f;
-        const float dia=juce::jmin(float(w)*.82f,float(h)*targetScale);
+        const bool baxShort=id.startsWith("bax_");
+        const float targetScale=master ? 1.16f : baxShort ? 1.28f
+            : compact ? 1.19f : 1.17f;
+        const float dia=juce::jmin(float(w)*(baxShort?.76f:.82f),
+                                    float(h)*targetScale);
         if (dia < 4.f) return;
         const auto tr = juce::AffineTransform::translation(
             -img.getWidth()*.5f, -img.getHeight()*.5f)
@@ -261,11 +264,13 @@ public:
         }
         else if (id == "global_in") name = "MASTER IN";
         else if (id == "furnace_gold") name = "GOLD VCA";
-        else if (id == "shadow_optical_threshold") name = "OPTICAL THRESH";
-        else if (id == "shadow_discrete_threshold") name = "DISCRETE THRESH";
-        else if (id == "shadow_discrete_recovery") name = "DISCRETE RECOVERY";
-        else if (id == "shadow_discrete_attack") name = "DISCRETE ATTACK";
-        else if (id == "shadow_discrete_gain") name = "DISCRETE GAIN";
+        else if (id == "shadow_optical_threshold") name = "OPT THRESH";
+        else if (id == "shadow_optical_makeup") name = "OPT MAKEUP";
+        else if (id == "shadow_discrete_threshold") name = "DISC THRESH";
+        else if (id == "shadow_discrete_recovery") name = "DISC RELEASE";
+        else if (id == "shadow_discrete_attack") name = "DISC ATTACK";
+        else if (id == "shadow_discrete_gain") name = "DISC GAIN";
+        else if (id == "shadow_discrete_ratio") name = "DISC RATIO";
         else if (id == "limiter_ceiling_dbtp") name = "CEILING dBTP";
         else if (name == "IN") name = "IN";
         else if (name.length() > 15) name = name.replace("Frequency", "Freq")
@@ -274,10 +279,10 @@ public:
                                                  .replace("Oversampling", "OS");
         title.setText(name.toUpperCase(), juce::dontSendNotification);
         // Long Shadow and split Bax labels must remain entirely readable.
-        const float labelSize=id.startsWith("shadow_") ? 9.15f
-            : id.startsWith("bax_") ? 9.4f
-            : id.startsWith("parametric_band_") ? 9.5f
-            : 10.25f;
+        const float labelSize=id.startsWith("shadow_") ? 10.f
+            : id.startsWith("bax_") ? 10.f
+            : id.startsWith("parametric_band_") ? 9.7f
+            : 10.4f;
         title.setFont(juce::Font(juce::FontOptions(labelSize)));
         setComponentID(id);
         title.setJustificationType(juce::Justification::centred);
@@ -358,10 +363,10 @@ public:
     {
         const int w=getWidth(), h=getHeight();
         if(h < 54) {
-            title.setBounds(1,0,w-2,12);
+            title.setBounds(1,0,w-2,13);
             if (knob) {
-                knob->setTextBoxStyle(juce::Slider::TextBoxRight,false,44,16);
-                knob->setBounds(2,10,w-4,h-11);
+                knob->setTextBoxStyle(juce::Slider::TextBoxRight,false,42,17);
+                knob->setBounds(0,9,w,h-10);
             }
             if (combo) {
                 const int cw=juce::jmin(105, w-6);
@@ -484,13 +489,13 @@ public:
             // Crisp original hardware power mark, with dark isolation from the
             // wave graphics. The approved faceplate itself is untouched.
             g.setColour(juce::Colour(0xff100d0a).withAlpha(.88f));
-            g.fillEllipse(240.f,16.f,39.f,39.f);
+            g.fillEllipse(219.f,16.f,39.f,39.f);
             g.setColour(juce::Colour(0xffffc47a));
             juce::Path powerArc;
-            powerArc.addCentredArc(259.5f,35.5f,15.4f,15.4f,0.f,
+            powerArc.addCentredArc(238.5f,35.5f,15.4f,15.4f,0.f,
                                   .65f,juce::MathConstants<float>::twoPi-.65f,true);
             g.strokePath(powerArc,juce::PathStrokeType(2.3f));
-            g.drawLine(259.5f,15.f,259.5f,36.f,2.6f);
+            g.drawLine(238.5f,15.f,238.5f,36.f,2.6f);
         }
         if(index==7) {
             // Original approved MID/SIDE button artwork with live bypass state.
@@ -571,33 +576,47 @@ public:
                                                : juce::Colour(0xffff95ab);
             const auto secondColour=dynamics ? juce::Colour(0xffffc176)
                                                 : juce::Colour(0xfff4a0d7);
-            g.setColour(juce::Colour(0xff08131b).withAlpha(.90f));
-            g.fillRoundedRectangle(juce::Rectangle<float>(120.f,43.f,160.f,35.f),4.f);
+            g.setColour(juce::Colour(0xff07121a).withAlpha(.82f));
+            g.fillRoundedRectangle(juce::Rectangle<float>(119.f,43.f,162.f,35.f),4.f);
+            g.setColour(firstColour.withAlpha(.34f));
+            g.drawRoundedRectangle(juce::Rectangle<float>(119.f,43.f,162.f,35.f),4.f,.8f);
             const auto drawRow=[&](const juce::String& name,float db,int y,
                                    juce::Colour light) {
-                g.setFont(juce::Font(juce::FontOptions(8.6f)));
-                g.setColour(juce::Colour(0xffd5d7df));
-                g.drawFittedText(name,123,y,43,12,juce::Justification::centredLeft,1);
-                const int lit=juce::jlimit(0,10,int(std::round(db*10.f/18.f)));
-                for(int seg=0;seg<10;++seg) {
-                    g.setColour(seg<lit ? light : light.withAlpha(.16f));
+                g.setFont(juce::Font(juce::FontOptions(9.6f)));
+                g.setColour(juce::Colour(0xffe3deda));
+                g.drawFittedText(name,121,y,47,14,juce::Justification::centredLeft,1);
+                const int lit=juce::jlimit(0,9,int(std::round(db*9.f/18.f)));
+                for(int seg=0;seg<9;++seg) {
+                    g.setColour(seg<lit ? light : light.withAlpha(.18f));
                     g.fillRoundedRectangle(juce::Rectangle<float>(
-                        168.f+float(seg)*5.1f,float(y)+4.f,3.9f,5.f),.8f);
+                        170.f+float(seg)*5.35f,float(y)+4.f,4.3f,7.f),1.f);
                 }
-                g.setFont(juce::Font(juce::FontOptions(9.f)));
+                g.setFont(juce::Font(juce::FontOptions(10.2f)));
                 g.setColour(light);
-                g.drawFittedText(juce::String(db,1)+"dB",221,y,55,12,
+                g.drawFittedText(juce::String(db,1)+" dB",221,y,56,14,
                                  juce::Justification::centredRight,1);
             };
-            drawRow(dynamics ? "OCEAN" : "OPT",first,46,firstColour);
-            drawRow(dynamics ? "FURNACE" : "DISC",second,62,secondColour);
+            drawRow(dynamics ? "OCEAN" : "OPT",first,45,firstColour);
+            drawRow(dynamics ? "FURNACE" : "DISC",second,61,secondColour);
         } else if(index==10) {
             const float raw=processor.limiterReductionDb.load(std::memory_order_relaxed);
             const float db=std::isfinite(raw) ? juce::jlimit(0.f,36.f,std::abs(raw)) : 0.f;
-            g.setColour(accent);
-            g.setFont(juce::Font(juce::FontOptions(9.f)));
-            g.drawText("GR "+juce::String(db,1)+" dB",124,51,124,15,
-                       juce::Justification::centredRight);
+            const juce::Rectangle<float> grPanel(122.f,44.f,157.f,27.f);
+            g.setColour(juce::Colour(0xff1a080b).withAlpha(.89f));
+            g.fillRoundedRectangle(grPanel,4.f);
+            g.setColour(juce::Colour(0xffff6d6d).withAlpha(.52f));
+            g.drawRoundedRectangle(grPanel,4.f,.9f);
+            g.setFont(juce::Font(juce::FontOptions(10.2f)));
+            g.setColour(juce::Colour(0xffffb9b0));
+            g.drawFittedText("GR",126,49,22,16,juce::Justification::centredLeft,1);
+            const int lit=juce::jlimit(0,9,int(std::round(db*9.f/18.f)));
+            for(int j=0;j<9;++j) {
+                g.setColour(j<lit ? juce::Colour(0xffff6b75) : juce::Colour(0xff4a1820));
+                g.fillRoundedRectangle(juce::Rectangle<float>(151.f+float(j)*5.5f,54.f,4.f,7.f),.8f);
+            }
+            g.setColour(juce::Colour(0xffffc7b7));
+            g.drawFittedText(juce::String(db,1)+" dB",204,49,72,16,
+                             juce::Justification::centredRight,1);
         }
     }
 
@@ -799,8 +818,9 @@ void SteamMasterEditor::paint(juce::Graphics& g)
             const float mid=juce::jlimit(-1.f,1.f,(l+r)*.5f);
             const float side=juce::jlimit(-1.f,1.f,(l-r)*.5f);
             const juce::Point<float> point(cx+side*111.f,baseY-mid*39.f);
-            if(hasPrevious && point.getDistanceFrom(prev)<30.f)
-                g.drawLine(juce::Line<float>(prev,point),1.25f);
+            if(hasPrevious && point.getDistanceFrom(prev)<95.f)
+                g.drawLine(juce::Line<float>(prev,point),.9f);
+            g.fillEllipse(point.x-1.35f,point.y-1.35f,2.7f,2.7f);
             prev=point;
             hasPrevious=true;
         }
@@ -844,9 +864,10 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     // The approved waveform already says TP. Show just one status LED and
     // one numerical readout, without duplicating that header label.
     if(led.isValid())
-        g.drawImageWithin(led,992,27,15,15,juce::RectanglePlacement::centred,false);
+        g.drawImageWithin(led,960,26,12,12,juce::RectanglePlacement::centred,false);
+    g.setFont(juce::Font(juce::FontOptions(9.5f)));
     g.drawText(limiterOn ? juce::String(actualTPDb,1) : juce::String("--"),
-               1011,26,64,18,juce::Justification::centredLeft);
+               932,43,41,13,juce::Justification::centredRight);
     for (int i = 0; i < 4; ++i)
     {
         const int pair = i / 2, channel = i % 2;
