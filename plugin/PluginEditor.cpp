@@ -277,13 +277,25 @@ public:
             name = "B" + number + " " + kind;
         }
         else if (id == "global_in") name = "MASTER IN";
+        else if (id == "furnace_gold") name = "GOLD VCA";
+        else if (id == "shadow_optical_threshold") name = "OPTICAL THRESH";
+        else if (id == "shadow_discrete_threshold") name = "DISCRETE THRESH";
+        else if (id == "shadow_discrete_recovery") name = "DISCRETE RECOVERY";
+        else if (id == "shadow_discrete_attack") name = "DISCRETE ATTACK";
+        else if (id == "shadow_discrete_gain") name = "DISCRETE GAIN";
+        else if (id == "limiter_ceiling_dbtp") name = "CEILING dBTP";
         else if (name == "IN") name = "IN";
         else if (name.length() > 15) name = name.replace("Frequency", "Freq")
                                                  .replace("Threshold", "Thresh")
                                                  .replace("Attenuation", "Atten")
                                                  .replace("Oversampling", "OS");
         title.setText(name.toUpperCase(), juce::dontSendNotification);
-        title.setFont(juce::Font(juce::FontOptions(10.7f)));
+        // Long Shadow and split Bax labels must remain entirely readable.
+        const float labelSize=id.startsWith("shadow_") ? 9.15f
+            : id.startsWith("bax_") ? 9.4f
+            : id.startsWith("parametric_band_") ? 9.5f
+            : 10.25f;
+        title.setFont(juce::Font(juce::FontOptions(labelSize)));
         setComponentID(id);
         title.setJustificationType(juce::Justification::centred);
         title.setColour(juce::Label::textColourId, foundry::muted);
