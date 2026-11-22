@@ -139,6 +139,7 @@ if(STEAMMASTER_BUILD_VST3)
     target_link_libraries(steammaster_plugin_host_smoke PRIVATE SteamMasterEZ steammaster_dsp juce::juce_audio_utils)
     target_include_directories(steammaster_plugin_host_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plugin)
     add_test(NAME SteamMasterPluginHostSmoke COMMAND steammaster_plugin_host_smoke)
+    set_tests_properties(SteamMasterPluginHostSmoke PROPERTIES TIMEOUT 120)
   endif()
 endif()
 

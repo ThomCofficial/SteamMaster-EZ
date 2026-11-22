@@ -19,6 +19,10 @@ jobs:
         run: ctest --test-dir build-ez -C Release --output-on-failure
       - name: Repeat plugin editor host lifecycle and animation stress
         run: ctest --test-dir build-ez -C Release -R SteamMasterPluginHostSmoke --repeat until-fail:8 --output-on-failure
+      - name: Verify twenty complete Windows VST3 DLL load/unload cycles
+        shell: pwsh
+        timeout-minutes: 3
+        run: ./tests/TestVST3Unload.ps1 -BuildDir build-ez
       - name: Print CPU safety benchmarks
         run: ctest --test-dir build-ez -C Release -R SteamMasterCPUSafety -V
       - name: Publish actual JUCE-rendered Foundry screenshot
