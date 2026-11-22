@@ -15,46 +15,38 @@ const auto secondaryText=foundry::muted;
 
 const juce::Image& assembledApprovedFaceplate()
 {
-    // One-time code-only composition. Do NOT allocate/reassemble raster assets
-    // during the 25 Hz meter update or when Cubase repaints the plugin window.
+    // Approved artwork is composited exactly once, never on the audio thread.
+    // Use all contiguous source intervals: earlier code cropped the middle
+    // of panels and left black strips, shifting each next module into the wrong row.
     static const juce::Image image=[] {
-        juce::Image output(juce::Image::ARGB,1672,941,true);
-        juce::Graphics art(output);
-        const auto faceplate=juce::ImageCache::getFromMemory(BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
-        if(faceplate.isValid()) {
-        // Deterministic assembly of the original approved faceplate.
-        // Every module has its own source/destination rectangle, preserving
-        // artwork module alignment without stretching the entire rack vertically.
-        // JUCE 8 uses the integer source/destination drawImage overload.
-        const int sw=faceplate.getWidth(),sh=faceplate.getHeight();
-        const auto sx=[&](int x) { return int(std::round(double(sw)*double(x)/1440.)); };
-        const auto sy=[&](int y) { return int(std::round(double(sh)*double(y)/1013.)); };
-        art.drawImage(faceplate,0,0,1672,66,
-                    0,0,sw,sy(70),false);
-        constexpr int sourceTops[]{82,180,266,356,435,518,596,672,750,831};
-        constexpr int sourceHeights[]{88,76,80,74,73,68,69,68,72,77};
-        constexpr int destTops[]{73,166,256,353,441,527,606,707,792,871};
-        constexpr int destHeights[]{84,82,89,80,81,74,94,78,76,70};
-        constexpr int sourceX[]{0,270,1120,1440};
-        constexpr int destX[]{0,282,1347,1672};
-        for(int module=0;module<10;++module) {
-            const int srcY=sy(sourceTops[module]);
-            const int srcH=sy(sourceTops[module]+sourceHeights[module])-srcY;
-            for(int part=0;part<3;++part) {
-                const int left=sx(sourceX[part]);
-                const int srcW=sx(sourceX[part+1])-left;
-                art.drawImage(faceplate,destX[part],destTops[module],
-                            destX[part+1]-destX[part],destHeights[module],
-                            left,srcY,srcW,srcH,false);
+        juce::Image out(juce::Image::ARGB,1672,941,true);
+        juce::Graphics g(out);
+        const auto src=juce::ImageCache::getFromMemory(
+            BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
+        if(!src.isValid()) return out;
+        // Boundaries are the ORIGINAL approved 1440 x 1013 rack coordinates.
+        // All bands meet, so no source pixel/row is accidentally skipped.
+        constexpr int srcY[]{0,82,183,275,368,456,545,632,711,795,875,970};
+        constexpr int dstY[]{0,73,166,256,353,441,527,606,707,792,871,941};
+        constexpr int srcX[]{0,300,1130,1440};
+        constexpr int dstX[]{0,282,1347,1672};
+        const auto xs=[&](int x){return int(std::round(
+            double(src.getWidth())*double(x)/1440.));};
+        const auto ys=[&](int y){return int(std::round(
+            double(src.getHeight())*double(y)/1013.));};
+        for(int row=0;row<11;++row) {
+            const int sy=ys(srcY[row]), sh=ys(srcY[row+1])-sy;
+            for(int col=0;col<3;++col) {
+                const int sx=xs(srcX[col]), sw=xs(srcX[col+1])-sx;
+                g.drawImage(src,dstX[col],dstY[row],
+                            dstX[col+1]-dstX[col],dstY[row+1]-dstY[row],
+                            sx,sy,sw,sh,false);
             }
         }
-    }
-
-        return output;
+        return out;
     }();
     return image;
 }
-
 
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
@@ -415,10 +407,6 @@ public:
             if (index == 2 || index == 5 || index == 10)
                 repaint(juce::Rectangle<int>(15, 52, 169, 34));
             // Animation remains GUI-only: no animation calculations on the audio thread.
-            if (isActive && index == 8) {
-                reelAngle += .115f;
-                repaint(juce::Rectangle<int>(1340, 2, 305, getHeight()-4));
-            }
             if (isActive && (index == 5 || index == 6))
                 repaint(juce::Rectangle<int>(154, 13, 55, 42));
         }
@@ -455,16 +443,6 @@ public:
             if(sideImage.isValid())
                 g.drawImageWithin(sideImage,293,50,83,35,juce::RectanglePlacement::stretchToFit,false);
         }
-        if(index==1) {
-            const auto gold=juce::Colour(0xffffbd55);
-            g.setColour(gold);g.drawEllipse(243.f,21.f,37.f,37.f,2.f);
-            g.drawLine(261.f,16.f,261.f,42.f,3.f);
-        }
-        if(index==2 || index==9) {
-            g.setColour(index==2 ? juce::Colour(0xff41d5f7) : juce::Colour(0xffc768f9));
-            g.drawEllipse(244.f,26.f,31.f,31.f,1.5f);
-            g.drawEllipse(258.f,26.f,31.f,31.f,1.5f);
-        }
         if(index==3) {
             // Four independently outlined EQ bands, kept clear of all hit targets.
             const juce::Colour colors[]{juce::Colour(0xff8c9750),juce::Colour(0xff75d3c5),
@@ -495,32 +473,6 @@ public:
             else {marks=dividers10;count=8;}
             for(int i=0;i<count;++i)
                 g.drawLine(float(marks[i]),9.f,float(marks[i]),float(getHeight()-9),.8f);
-        }
-        if(index==8) {
-            const auto drawReel=[&](float x,float y,float r,float rotation) {
-                const auto dark=juce::Colour(0xff130e0b),brass=juce::Colour(0xffca9154);
-                g.setColour(dark);g.fillEllipse(x-r-3.f,y-r-3.f,2*r+6.f,2*r+6.f);
-                g.setColour(brass.darker(.5f));g.fillEllipse(x-r,y-r,2*r,2*r);
-                g.setColour(juce::Colour(0xff342016));g.fillEllipse(x-r+5,y-r+5,2*r-10,2*r-10);
-                juce::Path spokes;
-                for(int k=0;k<3;++k){
-                    const float a=rotation+juce::MathConstants<float>::twoPi*float(k)/3.f;
-                    const float cs=std::cos(a),sn=std::sin(a);
-                    const float aa=a+.30f,bb=a-.30f;
-                    juce::Path q;
-                    q.startNewSubPath(x+11*cs,y+11*sn);
-                    q.lineTo(x+(r-8)*std::cos(aa),y+(r-8)*std::sin(aa));
-                    q.lineTo(x+(r-8)*std::cos(bb),y+(r-8)*std::sin(bb));
-                    q.closeSubPath();
-                    spokes.addPath(q);
-                }
-                g.setColour(brass);g.fillPath(spokes);
-                g.setColour(brass.brighter(.25f));g.drawEllipse(x-r,y-r,2*r,2*r,2.2f);
-                g.setColour(juce::Colour(0xff20150e));g.fillEllipse(x-10,y-10,20,20);
-                g.setColour(brass);g.drawEllipse(x-10,y-10,20,20,2.f);
-            };
-            drawReel(1407.f,40.f,36.f,reelAngle);
-            drawReel(1574.f,40.f,36.f,-reelAngle);
         }
         if(index==2||index==5||index==10){
             const float a = index==2 ? processor.oceanReductionDb.load(std::memory_order_relaxed)
@@ -604,7 +556,6 @@ public:
     }
 
 private:
-    float reelAngle = 0.f;
     SteamMasterProcessor& processor;
     juce::String title, description;
     int index = 0;
