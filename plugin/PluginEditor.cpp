@@ -649,8 +649,29 @@ void SteamMasterEditor::paint(juce::Graphics& g)
 
     // Locked original artwork; one affine transform for faceplate and UI controls.
     const auto faceplate=juce::ImageCache::getFromMemory(BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
-    if(faceplate.isValid())
-        g.drawImageWithin(faceplate,0,0,designWidth,designHeight,juce::RectanglePlacement::stretchToFit,false);
+    if(faceplate.isValid()) {
+        // Deterministic four-region horizontal expansion of the APPROVED
+        // faceplate. The left nameplates are protected from global stretching;
+        // the reel region stays almost 1:1 to preserve round tape hubs.
+        // Never regenerate or rescale approved PNGs with image generation.
+        const float sw=float(faceplate.getWidth()),sh=float(faceplate.getHeight());
+        const float originalHeader=sh*70.f/1013.f;
+        g.drawImage(faceplate,
+                    juce::Rectangle<float>(0.f,0.f,float(designWidth),float(headerHeight)),
+                    juce::Rectangle<float>(0.f,0.f,sw,originalHeader),false);
+        const float srcCuts[]{0.f,270.f,1050.f,1350.f,1440.f};
+        const float dstCuts[]{0.f,282.f,1350.f,1645.f,float(designWidth)};
+        for(int i=0;i<4;++i) {
+            const float sx=sw*srcCuts[i]/1440.f;
+            const float sx2=sw*srcCuts[i+1]/1440.f;
+            g.drawImage(faceplate,
+                        juce::Rectangle<float>(dstCuts[i],float(headerHeight),
+                                               dstCuts[i+1]-dstCuts[i],
+                                               float(designHeight-headerHeight)),
+                        juce::Rectangle<float>(sx,originalHeader,sx2-sx,sh-originalHeader),
+                        false);
+        }
+    }
 
     const int x = designWidth - 505;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
