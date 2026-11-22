@@ -57,33 +57,6 @@ const juce::Image& assembledApprovedFaceplate()
     return image;
 }
 
-const juce::Image& reelArtwork(bool right)
-{
-    static const std::array<juce::Image,2> reelImages=[] {
-        std::array<juce::Image,2> sprites;
-        const auto& face=assembledApprovedFaceplate();
-        constexpr int radius=37, y=729;
-        constexpr int centres[]{1378,1545};
-        for(int n=0;n<2;++n) {
-            sprites[size_t(n)]=face.getClippedImage(
-                juce::Rectangle<int>(centres[n]-radius,y-radius,
-                                     radius*2,radius*2)).createCopy();
-            juce::Image::BitmapData pixels(sprites[size_t(n)],
-                                             juce::Image::BitmapData::readWrite);
-            for(int py=0;py<radius*2;++py)
-                for(int px=0;px<radius*2;++px) {
-                    const float dx=float(px-radius)+.5f,dy=float(py-radius)+.5f;
-                    const float d=std::sqrt(dx*dx+dy*dy);
-                    const float fade=juce::jlimit(0.f,1.f,float(radius)-d);
-                    pixels.setPixelColour(px,py,
-                        pixels.getPixelColour(px,py).withMultipliedAlpha(fade));
-                }
-        }
-        return sprites;
-    }();
-    return reelImages[right?1u:0u];
-}
-
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -804,29 +777,23 @@ void SteamMasterEditor::paint(juce::Graphics& g)
         }
     }
 
-    // Only the existing, masked hardware reel artwork is rotated. No second
-    // synthesized reel is drawn over it and the source PNG remains immutable.
+    // Keep the exact approved baked reels stationary until isolated transparent
+    // reel sprites are approved. A tiny moving rim glint indicates tape activity
+    // without the duplicate spokes and rotated tape-bed textures seen in tests.
     if (auto* tape=processor.state.getRawParameterValue("tape_in");
         tape && tape->load(std::memory_order_relaxed)>.5f) {
-        const auto paintReel=[&](int x,int y,bool right,float angle) {
-            const auto& sprite=reelArtwork(right);
-            if(!sprite.isValid())return;
-            constexpr int radius=37;
-            g.setColour(juce::Colour(0xff180f0b));
-            g.fillEllipse(float(x-radius),float(y-radius),
-                          float(radius*2),float(radius*2));
-            const auto xf=juce::AffineTransform::translation(
-                -float(radius),-float(radius))
-                .rotated(angle).translated(float(x),float(y));
-            g.drawImageTransformed(sprite,xf,false);
-            g.setColour(juce::Colour(0xffcf9b62).withAlpha(.85f));
-            g.drawEllipse(float(x-radius),float(y-radius),
-                          float(radius*2),float(radius*2),1.8f);
+        juce::Graphics::ScopedSaveState clip(g);
+        g.reduceClipRegion(juce::Rectangle<int>(1322,696,306,79));
+        const auto highlight=[&](float cx,float phase) {
+            juce::Path rim;
+            rim.addCentredArc(cx,740.f,51.f,42.f,0.f,
+                               phase,phase+.36f,true);
+            g.setColour(juce::Colour(0xffffc17d).withAlpha(.64f));
+            g.strokePath(rim,juce::PathStrokeType(2.1f));
         };
-        paintReel(1378,729,false,reelPhase);
-        paintReel(1545,729,true,-reelPhase);
+        highlight(1390.f,reelPhase);
+        highlight(1575.f,-reelPhase);
     }
-
 
     const int x = 1090;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
@@ -905,7 +872,7 @@ void SteamMasterEditor::timerCallback()
         reelPhase+=.19f;
         if(reelPhase>juce::MathConstants<float>::twoPi)
             reelPhase-=juce::MathConstants<float>::twoPi;
-        const auto reelRegion=juce::Rectangle<float>(1333.f,687.f,259.f,86.f)
+        const auto reelRegion=juce::Rectangle<float>(1320.f,695.f,309.f,81.f)
             .transformedBy(juce::AffineTransform::scale(uiScale)
                              .translated(uiOffsetX,uiOffsetY));
         repaint(reelRegion.getSmallestIntegerContainer());
