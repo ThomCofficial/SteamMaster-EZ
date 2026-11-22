@@ -17,6 +17,8 @@ jobs:
           cmake --build build-ez --config Release --target SteamMasterEZ_VST3 --parallel 2
       - name: Run complete JUCE and DSP stress suite
         run: ctest --test-dir build-ez -C Release --output-on-failure
+      - name: Repeat plugin editor host lifecycle and animation stress
+        run: ctest --test-dir build-ez -C Release -R SteamMasterPluginHostSmoke --repeat until-fail:8 --output-on-failure
       - name: Print CPU safety benchmarks
         run: ctest --test-dir build-ez -C Release -R SteamMasterCPUSafety -V
       - name: Publish actual JUCE-rendered Foundry screenshot
