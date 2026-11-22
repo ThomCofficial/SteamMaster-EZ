@@ -822,11 +822,12 @@ void SteamMasterEditor::paint(juce::Graphics& g)
         : juce::ImageCache::getFromMemory(BinaryData::led_off_png,BinaryData::led_off_pngSize);
     g.setColour(warning ? juce::Colour(0xfff28a75) : secondaryText);
     g.setFont(juce::Font(juce::FontOptions(10.f)));
-    g.drawText("TP",987,26,22,18,juce::Justification::centredLeft);
+    // The approved waveform already says TP. Show just one status LED and
+    // one numerical readout, without duplicating that header label.
     if(led.isValid())
-        g.drawImageWithin(led,1009,27,16,16,juce::RectanglePlacement::centred,false);
+        g.drawImageWithin(led,992,27,15,15,juce::RectanglePlacement::centred,false);
     g.drawText(limiterOn ? juce::String(actualTPDb,1) : juce::String("--"),
-               1026,26,53,18,juce::Justification::centredLeft);
+               1011,26,64,18,juce::Justification::centredLeft);
     for (int i = 0; i < 4; ++i)
     {
         const int pair = i / 2, channel = i % 2;
