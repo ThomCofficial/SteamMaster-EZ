@@ -104,6 +104,51 @@ int main(){
     p->prepareToPlay(fs,512);
     if(p->getLatencySamples()<=0)throw std::runtime_error("latency not reported");
     if(!p->hasEditor())throw std::runtime_error("missing editor");
+    // GR telemetry must be independent for Ocean and Furnace. This is a
+    // host-level regression test of UI-facing atomics, not an algorithm change.
+    if(fs==48000.) {
+        auto* ocean=p->state.getParameter("ocean_in");
+        auto* furnace=p->state.getParameter("furnace_in");
+        auto* oceanThreshold=dynamic_cast<juce::AudioParameterFloat*>(
+            p->state.getParameter("ocean_threshold_db"));
+        auto* furnaceThreshold=dynamic_cast<juce::AudioParameterFloat*>(
+            p->state.getParameter("furnace_threshold_db"));
+        if(!ocean || !furnace || !oceanThreshold || !furnaceThreshold)
+            throw std::runtime_error("Ocean/Furnace GR parameter missing");
+        oceanThreshold->setValueNotifyingHost(oceanThreshold->convertTo0to1(-35.f));
+        furnaceThreshold->setValueNotifyingHost(furnaceThreshold->convertTo0to1(-35.f));
+        juce::AudioBuffer<float> meterAudio(2,512);
+        juce::MidiBuffer meterMidi;
+        const auto render=[&]() {
+            for(int block=0;block<80;++block) {
+                for(int channel=0;channel<2;++channel)
+                    for(int i=0;i<512;++i)
+                        meterAudio.setSample(channel,i,
+                            .8f*std::sin(float(block*512+i)*.063f));
+                p->processBlock(meterAudio,meterMidi);
+            }
+        };
+        ocean->setValueNotifyingHost(1.f);
+        furnace->setValueNotifyingHost(0.f);
+        render();
+        if(!std::isfinite(p->oceanReductionDb.load()) ||
+            p->oceanReductionDb.load()<.01f ||
+            p->furnaceReductionDb.load()!=0.f)
+            throw std::runtime_error("Ocean GR missing or Furnace GR is not zero when bypassed");
+        ocean->setValueNotifyingHost(0.f);
+        furnace->setValueNotifyingHost(1.f);
+        render();
+        if(!std::isfinite(p->furnaceReductionDb.load()) ||
+            p->furnaceReductionDb.load()<.01f ||
+            p->oceanReductionDb.load()!=0.f)
+            throw std::runtime_error("Furnace GR missing or Ocean GR is not zero when bypassed");
+        ocean->setValueNotifyingHost(0.f);
+        furnace->setValueNotifyingHost(0.f);
+        render();
+        if(p->oceanReductionDb.load()!=0.f || p->furnaceReductionDb.load()!=0.f)
+            throw std::runtime_error("Ocean/Furnace GR meters did not clear in bypass");
+    }
+
     if(p->getName()!="SteamMaster EZ")
         throw std::runtime_error("GSSL replacement must retain the original plugin name");
     if(auto* gold=p->state.getRawParameterValue("furnace_gold");

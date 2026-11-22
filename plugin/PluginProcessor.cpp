@@ -147,8 +147,14 @@ void SteamMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     inputPeakR.store(inputR, std::memory_order_relaxed);
     outputPeakL.store(outputL, std::memory_order_relaxed);
     outputPeakR.store(outputR, std::memory_order_relaxed);
-    oceanReductionDb.store(float(rack->firstSix.ocean.gainReductionDb()), std::memory_order_relaxed);
-    furnaceReductionDb.store(float(rack->firstSix.furnace.gainReductionDb()), std::memory_order_relaxed);
+    // Read prepared DSP telemetry once per block. Bypassed compressors report
+    // zero rather than a stale detector value, without changing audio DSP.
+    oceanReductionDb.store(v("ocean_in") > .5f
+        ? float(rack->firstSix.ocean.gainReductionDb()) : 0.f,
+        std::memory_order_relaxed);
+    furnaceReductionDb.store(v("furnace_in") > .5f
+        ? float(rack->firstSix.furnace.gainReductionDb()) : 0.f,
+        std::memory_order_relaxed);
     shadowOpticalReductionDb.store(float(rack->firstSix.shadow.opticalReductionDb()), std::memory_order_relaxed);
     shadowDiscreteReductionDb.store(float(rack->firstSix.shadow.discreteReductionDb()), std::memory_order_relaxed);
     const auto limiterGR = rack->limiter.gainReductionDb();
