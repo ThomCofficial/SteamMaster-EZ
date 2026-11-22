@@ -3,6 +3,7 @@
 #include <BinaryData.h>
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 namespace
 {
@@ -13,15 +14,15 @@ const auto copper=foundry::gold;
 const auto aqua=foundry::teal;
 const auto secondaryText=foundry::muted;
 
-const juce::Image& assembledApprovedFaceplate()
+juce::Image buildApprovedFaceplate()
 {
     // Approved artwork is composited exactly once, never on the audio thread.
     // Use all contiguous source intervals: earlier code cropped the middle
     // of panels and left black strips, shifting each next module into the wrong row.
-    static const juce::Image image=[] {
+    return [] {
         juce::Image out(juce::Image::ARGB,1672,941,true);
         juce::Graphics g(out);
-        const auto src=juce::ImageCache::getFromMemory(
+        const auto src=juce::ImageFileFormat::loadFrom(
             BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
         if(!src.isValid()) return out;
         // Boundaries are the ORIGINAL approved 1440 x 1013 rack coordinates.
@@ -54,15 +55,13 @@ const juce::Image& assembledApprovedFaceplate()
         }
         return out;
     }();
-    return image;
 }
 
-// Reel surfaces are taken from the APPROVED faceplate exactly once. Rotating
+// Reel surfaces are taken from the APPROVED faceplate in the owning editor. Rotating
 // the flattened reel in round-space avoids sliding or duplicating the tape bed.
-const juce::Image& originalTapeReel(bool right)
+std::array<juce::Image,2> buildOriginalTapeReels(const juce::Image& plate)
 {
-    static const std::array<juce::Image,2> reels=[] {
-        const auto& plate=assembledApprovedFaceplate();
+    return [&] {
         constexpr int cx[]{1393,1573};
         constexpr int cy[]{740,740};
         constexpr int halfW=58,halfH=40;
@@ -73,12 +72,22 @@ const juce::Image& originalTapeReel(bool right)
                 cx[1]-halfW,cy[1]-halfH,2*halfW,2*halfH)).createCopy()
         };
     }();
-    return reels[right ? 1u : 0u];
 }
 
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
+    juce::Image asset(const void* bytes, int length)
+    {
+        // Editor-local cache: JUCE's process-global ImageCache survives plugin
+        // windows and can keep Windows graphics objects alive during VST3 unload.
+        const auto found=images.find(bytes);
+        if(found!=images.end()) return found->second;
+        auto img=juce::ImageFileFormat::loadFrom(bytes,length);
+        images.emplace(bytes,img);
+        return img;
+    }
+
     EzLookAndFeel()
     {
         setColour(juce::ComboBox::textColourId, foundry::ivory);
@@ -103,12 +112,12 @@ public:
         const bool master=id=="global_input_db" || id=="global_output_db";
         const bool compact=id.startsWith("parametric_band_") || id.startsWith("bax_");
         const auto img=master
-            ? juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_master_512_png,
+            ? asset(BinaryData::SteamMaster_EZ_knob_master_512_png,
                                                BinaryData::SteamMaster_EZ_knob_master_512_pngSize)
             : compact
-                ? juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_compact_128_png,
+                ? asset(BinaryData::SteamMaster_EZ_knob_compact_128_png,
                                                    BinaryData::SteamMaster_EZ_knob_compact_128_pngSize)
-                : juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_standard_256_png,
+                : asset(BinaryData::SteamMaster_EZ_knob_standard_256_png,
                                                    BinaryData::SteamMaster_EZ_knob_standard_256_pngSize);
         if(!img.isValid())return;
         // Larger hardware dial, still contained by its labelled JUCE cell.
@@ -137,15 +146,15 @@ public:
         const bool alt=id=="shadow_optical_in" || id=="shadow_discrete_in";
         const auto img=large
                 ? (button.getToggleState()
-                    ? juce::ImageCache::getFromMemory(BinaryData::toggle_large_on_png,BinaryData::toggle_large_on_pngSize)
-                    : juce::ImageCache::getFromMemory(BinaryData::toggle_large_off_png,BinaryData::toggle_large_off_pngSize))
+                    ? asset(BinaryData::toggle_large_on_png,BinaryData::toggle_large_on_pngSize)
+                    : asset(BinaryData::toggle_large_off_png,BinaryData::toggle_large_off_pngSize))
                 : alt
                     ? (button.getToggleState()
-                        ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_alt_png,BinaryData::toggle_small_on_alt_pngSize)
-                        : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_alt_png,BinaryData::toggle_small_off_alt_pngSize))
+                        ? asset(BinaryData::toggle_small_on_alt_png,BinaryData::toggle_small_on_alt_pngSize)
+                        : asset(BinaryData::toggle_small_off_alt_png,BinaryData::toggle_small_off_alt_pngSize))
                     : (button.getToggleState()
-                        ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_png,BinaryData::toggle_small_on_pngSize)
-                        : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_png,BinaryData::toggle_small_off_pngSize));
+                        ? asset(BinaryData::toggle_small_on_png,BinaryData::toggle_small_on_pngSize)
+                        : asset(BinaryData::toggle_small_off_png,BinaryData::toggle_small_off_pngSize));
         if (!img.isValid()) return;
         // Never stretch approved switch sprites across the entire JUCE hit box.
         // Keep their original pixel aspect ratio and centred hardware dimensions,
@@ -176,8 +185,8 @@ public:
                       int, int, int, int, juce::ComboBox&) override
     {
         const auto img = width > 98
-            ? juce::ImageCache::getFromMemory(BinaryData::dropdown_long_png, BinaryData::dropdown_long_pngSize)
-            : juce::ImageCache::getFromMemory(BinaryData::dropdown_short_png, BinaryData::dropdown_short_pngSize);
+            ? asset(BinaryData::dropdown_long_png, BinaryData::dropdown_long_pngSize)
+            : asset(BinaryData::dropdown_short_png, BinaryData::dropdown_short_pngSize);
         if (img.isValid()) g.drawImageWithin(img, 0, 0, width, height,
                                               juce::RectanglePlacement::stretchToFit, false);
     }
@@ -208,16 +217,16 @@ public:
         const auto label=button.getButtonText();
         if (label=="A")
             img=button.getToggleState()
-              ?juce::ImageCache::getFromMemory(BinaryData::A_ACTIVE_png,BinaryData::A_ACTIVE_pngSize)
-              :juce::ImageCache::getFromMemory(BinaryData::A_INACTIVE_png,BinaryData::A_INACTIVE_pngSize);
+              ?asset(BinaryData::A_ACTIVE_png,BinaryData::A_ACTIVE_pngSize)
+              :asset(BinaryData::A_INACTIVE_png,BinaryData::A_INACTIVE_pngSize);
         else if (label=="B")
             img=button.getToggleState()
-              ?juce::ImageCache::getFromMemory(BinaryData::B_ACTIVE_png,BinaryData::B_ACTIVE_pngSize)
-              :juce::ImageCache::getFromMemory(BinaryData::B_INACTIVE_png,BinaryData::B_INACTIVE_pngSize);
+              ?asset(BinaryData::B_ACTIVE_png,BinaryData::B_ACTIVE_pngSize)
+              :asset(BinaryData::B_INACTIVE_png,BinaryData::B_INACTIVE_pngSize);
         else
             img=label=="CONFIRM"
-              ?juce::ImageCache::getFromMemory(BinaryData::reset_active_png,BinaryData::reset_active_pngSize)
-              :juce::ImageCache::getFromMemory(BinaryData::reset_inactive_png,BinaryData::reset_inactive_pngSize);
+              ?asset(BinaryData::reset_active_png,BinaryData::reset_active_pngSize)
+              :asset(BinaryData::reset_inactive_png,BinaryData::reset_inactive_pngSize);
         if (img.isValid()) g.drawImageWithin(img,0,0,button.getWidth(),button.getHeight(),
                                               juce::RectanglePlacement::stretchToFit,false);
     }
@@ -237,6 +246,8 @@ public:
         label.setBounds(5, 1, box.getWidth() - 19, box.getHeight() - 2);
         label.setFont(juce::Font(juce::FontOptions(9.5f)));
     }
+private:
+    std::map<const void*,juce::Image> images;
 };
 
 
@@ -765,6 +776,10 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
     : juce::AudioProcessorEditor(&p), processor(p),
       skin(std::make_unique<EzLookAndFeel>())
 {
+    // Always allocate and release image resources with this editor instance.
+    // No global JUCE image caches and no function-static Image objects.
+    faceplate=buildApprovedFaceplate();
+    tapeReels=buildOriginalTapeReels(faceplate);
     setLookAndFeel(skin.get());
     setOpaque(true);
     addAndMakeVisible(rackCanvas);
@@ -835,8 +850,16 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
 SteamMasterEditor::~SteamMasterEditor()
 {
     stopTimer();
+    resetAll.onClick=nullptr;
+    compareA.onClick=nullptr;
+    compareB.onClick=nullptr;
+    // Disconnect/destroy all APVTS attachments and UI controls before
+    // disposing graphics resources or the per-editor LookAndFeel.
     modules.clear();
     setLookAndFeel(nullptr);
+    skin.reset();
+    tapeReels={};
+    faceplate={};
 }
 
 void SteamMasterEditor::drawMeter(juce::Graphics& g, juce::Rectangle<float> area,
@@ -856,7 +879,7 @@ void SteamMasterEditor::paint(juce::Graphics& g)
 
     // Locked original artwork; one affine transform for faceplate and UI controls.
     // One inexpensive blit for the faceplate; dynamic controls are separate.
-    g.drawImageAt(assembledApprovedFaceplate(),0,0,false);
+    g.drawImageAt(faceplate,0,0,false);
 
     // Stereo image goniometer: the fan is approved artwork; the actual moving
     // trace uses lock-free post-DSP samples and is clipped to the instrument.
@@ -901,7 +924,7 @@ void SteamMasterEditor::paint(juce::Graphics& g)
             g.reduceClipRegion(inside);
             g.setColour(juce::Colour(0xff110d0a));
             g.fillPath(inside);
-            const auto& texture=originalTapeReel(right);
+            const auto& texture=tapeReels[right ? 1u : 0u];
             if(!texture.isValid())return;
             // Undo the perspective squash, rotate, then restore its elliptical
             // projection. This does NOT rotate the baked-in tape bed.
@@ -930,8 +953,8 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     const bool tpEnabled=processor.state.getRawParameterValue("limiter_true_peak")
         ->load(std::memory_order_relaxed)>.5f;
     const auto led=tpEnabled
-        ? juce::ImageCache::getFromMemory(BinaryData::led_amber_png,BinaryData::led_amber_pngSize)
-        : juce::ImageCache::getFromMemory(BinaryData::led_off_png,BinaryData::led_off_pngSize);
+        ? static_cast<EzLookAndFeel*>(skin.get())->asset(BinaryData::led_amber_png,BinaryData::led_amber_pngSize)
+        : static_cast<EzLookAndFeel*>(skin.get())->asset(BinaryData::led_off_png,BinaryData::led_off_pngSize);
     g.setColour(warning ? juce::Colour(0xfff28a75) : secondaryText);
     g.setFont(juce::Font(juce::FontOptions(10.f)));
     // The approved waveform already says TP. Show just one status LED and

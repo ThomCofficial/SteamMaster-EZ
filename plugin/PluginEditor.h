@@ -23,6 +23,8 @@ private:
 
     SteamMasterProcessor& processor;
     std::unique_ptr<juce::LookAndFeel_V4> skin;
+    juce::Image faceplate;
+    std::array<juce::Image,2> tapeReels;
     juce::Component rackCanvas;
     static constexpr int designWidth = 1672;
     static constexpr int headerHeight = 66;
