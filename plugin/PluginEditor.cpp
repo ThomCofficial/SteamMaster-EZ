@@ -43,7 +43,7 @@ public:
         if (dia < 4.f) return;
         const auto tr = juce::AffineTransform::translation(
             -img.getWidth()*.5f, -img.getHeight()*.5f)
-            .rotated(start + pos*(end-start) - juce::MathConstants<float>::pi)
+            .rotated(start + pos*(end-start) - (start+end)*.5f)
             .scaled(dia / float(img.getWidth()))
             .translated(float(x) + w*.5f, float(y) + h*.5f);
         g.drawImageTransformed(img, tr, false);
@@ -67,6 +67,15 @@ public:
             : juce::ImageCache::getFromMemory(BinaryData::dropdown_short_png, BinaryData::dropdown_short_pngSize);
         if (img.isValid()) g.drawImageWithin(img, 0, 0, width, height,
                                               juce::RectanglePlacement::stretchToFit, false);
+    }
+
+    void drawLabel(juce::Graphics& g, juce::Label& label) override
+    {
+        // Dynamic JUCE values, but no generic white value-box outlines.
+        g.setColour(label.findColour(juce::Label::textColourId));
+        g.setFont(label.getFont());
+        g.drawFittedText(label.getText(), label.getLocalBounds().reduced(1,0),
+                         label.getJustificationType(), 1);
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button,
@@ -234,13 +243,25 @@ public:
                 knob->setTextBoxStyle(juce::Slider::TextBoxRight,false,42,15);
                 knob->setBounds(2,12,w-4,h-13);
             }
-            if (combo) combo->setBounds(3,15,w-6,h-18);
-            if (toggle) toggle->setBounds(3,15,w-6,h-18);
+            if (combo) {
+                const int cw=juce::jmin(105, w-6);
+                combo->setBounds((w-cw)/2,15,cw,h-18);
+            }
+            if (toggle) {
+                const int tw=juce::jmin(66,w-6);
+                toggle->setBounds((w-tw)/2,15,tw,h-18);
+            }
         } else {
             title.setBounds(1,1,w-2,14);
             if (knob) knob->setBounds(2,15,w-4,h-17);
-            if (combo) combo->setBounds(4,29,w-8,29);
-            if (toggle) toggle->setBounds(4,29,w-8,29);
+            if (combo) {
+                const int cw=juce::jmin(110,w-8);
+                combo->setBounds((w-cw)/2,29,cw,29);
+            }
+            if (toggle) {
+                const int tw=juce::jmin(75,w-8);
+                toggle->setBounds((w-tw)/2,30,tw,29);
+            }
         }
     }
 
@@ -354,24 +375,26 @@ public:
     {
         if(index==7 && controls.size()==16){
             for(int i=0;i<16;++i)
-                controls[size_t(i)]->setBounds(324+(i%8)*138,2+(i/8)*40,132,39);
+                controls[size_t(i)]->setBounds(303+(i%8)*140,2+(i/8)*40,133,39);
             return;
         }
         const int count=int(controls.size());
         if(index==3){
             for(int i=0;i<count;++i)
-                controls[size_t(i)]->setBounds(controlLeft+i*62,8,60,getHeight()-13);
+                controls[size_t(i)]->setBounds(controlLeft+i*59,8,57,getHeight()-13);
             return;
         }
-        const int slot=usableWidth/juce::jmax(1,count);
+        // Leave the pre-approved reel and stereo analyzer artwork unobstructed.
+        const int width=(index==8||index==9)?820:usableWidth;
+        const int slot=width/juce::jmax(1,count);
         for(int i=0;i<count;++i)
             controls[size_t(i)]->setBounds(controlLeft+slot*i+1,3,
-                  juce::jmax(40,slot-5),getHeight()-6);
+                  juce::jmax(38,slot-5),getHeight()-6);
     }
 
 private:
-    static constexpr int controlLeft = 251;
-    static constexpr int usableWidth = 1176;
+    static constexpr int controlLeft = 300;
+    static constexpr int usableWidth = 1128;
     SteamMasterProcessor& processor;
     juce::String title, description;
     int index = 0;
