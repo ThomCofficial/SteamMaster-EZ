@@ -41,6 +41,7 @@ private:
     std::array<bool, 2> compareValid{false, false};
     int currentComparison = 0;
     int resetConfirmTicks = 0;
+    float reelPhase = 0.f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SteamMasterEditor)
 };

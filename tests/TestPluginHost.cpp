@@ -103,6 +103,16 @@ int main(){
         throw std::runtime_error("global signal path must remain enabled");
     p->prepareToPlay(fs,512);
     if(p->getLatencySamples()<=0)throw std::runtime_error("latency not reported");
+    // Restore approved factory values after meter-isolation experiments.
+    // Otherwise the build screenshot misleadingly displays -35 dB thresholds.
+    for(auto* parameter:p->getParameters())
+        parameter->setValueNotifyingHost(parameter->getDefaultValue());
+    {
+        juce::AudioBuffer<float> settle(2,512);
+        juce::MidiBuffer midi;
+        settle.clear();
+        p->processBlock(settle,midi);
+    }
     if(!p->hasEditor())throw std::runtime_error("missing editor");
     // GR telemetry must be independent for Ocean and Furnace. This is a
     // host-level regression test of UI-facing atomics, not an algorithm change.
