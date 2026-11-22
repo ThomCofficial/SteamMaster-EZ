@@ -147,10 +147,20 @@ public:
 
     void drawLabel(juce::Graphics& g, juce::Label& label) override
     {
-        // Dynamic JUCE values, but no generic white value-box outlines.
+        // Parameter values get the reference's restrained dark engraved boxes.
+        // Labels/ticks remain live JUCE text, never part of a raster overlay.
+        const bool isParameterValue=dynamic_cast<juce::Slider*>(
+            label.getParentComponent())!=nullptr;
+        const auto rect=label.getLocalBounds().toFloat().reduced(.6f);
+        if(isParameterValue && rect.getWidth()>=24.f && rect.getHeight()>=12.f) {
+            g.setColour(juce::Colour(0xff070707).withAlpha(.88f));
+            g.fillRoundedRectangle(rect,1.8f);
+            g.setColour(juce::Colour(0xff978679).withAlpha(.68f));
+            g.drawRoundedRectangle(rect,1.8f,.85f);
+        }
         g.setColour(label.findColour(juce::Label::textColourId));
         g.setFont(label.getFont());
-        g.drawFittedText(label.getText(), label.getLocalBounds().reduced(1,0),
+        g.drawFittedText(label.getText(), label.getLocalBounds().reduced(2,0),
                          label.getJustificationType(), 1);
     }
 
