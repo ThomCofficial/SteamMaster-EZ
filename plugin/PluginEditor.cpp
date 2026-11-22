@@ -885,6 +885,24 @@ void SteamMasterEditor::timerCallback()
     }
     for (auto& module : modules) module->refreshStatus();
 
+    // A 25 Hz GUI timer animates only visible telemetry. No animation code
+    // touches the audio callback; these two local repaints avoid whole-rack
+    // redraws and stop immediately once the editor is destroyed.
+    if(const auto* tape=processor.state.getRawParameterValue("tape_in");
+       tape && tape->load(std::memory_order_relaxed)>.5f) {
+        reelPhase+=.19f;
+        if(reelPhase>juce::MathConstants<float>::twoPi)
+            reelPhase-=juce::MathConstants<float>::twoPi;
+        const auto reelRegion=juce::Rectangle<float>(1333.f,687.f,259.f,86.f)
+            .transformedBy(juce::AffineTransform::scale(uiScale)
+                             .translated(uiOffsetX,uiOffsetY));
+        repaint(reelRegion.getSmallestIntegerContainer());
+    }
+    const auto scopeRegion=juce::Rectangle<float>(1331.f,789.f,274.f,60.f)
+        .transformedBy(juce::AffineTransform::scale(uiScale)
+                         .translated(uiOffsetX,uiOffsetY));
+    repaint(scopeRegion.getSmallestIntegerContainer());
+
     const auto meters = juce::Rectangle<float>(850.f, 2.f, float(designWidth - 850), 63.f)
                           .transformedBy(juce::AffineTransform::scale(uiScale)
                                          .translated(uiOffsetX, uiOffsetY));
