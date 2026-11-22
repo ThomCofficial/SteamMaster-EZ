@@ -6,7 +6,7 @@
 #include <memory>
 #include <vector>
 
-// Native JUCE UI. No image assets, no tabs, no static knob overlays.
+// Approved original PNG faceplate and hardware sprites; live JUCE control bindings.
 class SteamMasterEditor final : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
