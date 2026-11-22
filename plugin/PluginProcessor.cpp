@@ -161,6 +161,17 @@ void SteamMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     limiterReductionDb.store(float(std::max(std::abs(limiterGR.l), std::abs(limiterGR.r))),
                              std::memory_order_relaxed);
     limiterMeasuredTruePeak.store(float(rack->limiter.measuredOutputTruePeak()), std::memory_order_relaxed);
+    // Stereo monitor: at most 64 sampled pairs per audio block. No DSP
+    // processing, inter-thread locks, heap allocations or extra oversampling.
+    unsigned captured=0;
+    for(int i=0; i<buffer.getNumSamples() && captured<kScopePoints; i+=16) {
+        scopeLeft[captured].store(std::isfinite(left[i]) ? left[i] : 0.f,
+                                  std::memory_order_relaxed);
+        scopeRight[captured].store(std::isfinite(right[i]) ? right[i] : 0.f,
+                                   std::memory_order_relaxed);
+        ++captured;
+    }
+    scopeCount.store(captured,std::memory_order_release);
     for (int c = 2; c < buffer.getNumChannels(); ++c)
         buffer.clear(c, 0, buffer.getNumSamples());
 }

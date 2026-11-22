@@ -36,6 +36,11 @@ public:
     std::atomic<float> shadowOpticalReductionDb{0.f}, shadowDiscreteReductionDb{0.f};
     std::atomic<float> limiterReductionDb{0.f};
     std::atomic<float> limiterMeasuredTruePeak{0.f};
+    // Low-cost, fixed-capacity stereo goniometer samples.
+    // GUI reads relaxed atomics; audio callback never takes a lock or allocates.
+    static constexpr std::size_t kScopePoints=64;
+    std::array<std::atomic<float>,kScopePoints> scopeLeft{}, scopeRight{};
+    std::atomic<unsigned> scopeCount{0};
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
     // Must match the entire APVTS layout, including limiter_true_peak (parameter 109).
