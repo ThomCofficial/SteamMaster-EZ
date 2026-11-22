@@ -498,21 +498,25 @@ public:
             g.drawLine(238.5f,15.f,238.5f,36.f,2.6f);
         }
         if(index==7) {
-            // Original approved MID/SIDE button artwork with live bypass state.
-            const auto mid=processor.state.getRawParameterValue("bax_mid_in");
-            const auto side=processor.state.getRawParameterValue("bax_side_in");
-            const bool midOn=mid && mid->load(std::memory_order_relaxed)>.5f;
-            const bool sideOn=side && side->load(std::memory_order_relaxed)>.5f;
-            const auto midImage=midOn
-                ? juce::ImageCache::getFromMemory(BinaryData::mid_active_png,BinaryData::mid_active_pngSize)
-                : juce::ImageCache::getFromMemory(BinaryData::mid_inactive_png,BinaryData::mid_inactive_pngSize);
-            const auto sideImage=sideOn
-                ? juce::ImageCache::getFromMemory(BinaryData::side_active_png,BinaryData::side_active_pngSize)
-                : juce::ImageCache::getFromMemory(BinaryData::side_inactive_png,BinaryData::side_inactive_pngSize);
-            if(midImage.isValid())
-                g.drawImageWithin(midImage,293,6,83,35,juce::RectanglePlacement::stretchToFit,false);
-            if(sideImage.isValid())
-                g.drawImageWithin(sideImage,293,50,83,35,juce::RectanglePlacement::stretchToFit,false);
+            // The reference uses CYAN MID/SIDE legends, not the gold buttons.
+            // These are status indicators. The genuine APVTS input switches
+            // immediately to their right remain the interactive controls.
+            const auto indicator=[&](bool active,int y,const char* text) {
+                const juce::Rectangle<float> outline(295.f,float(y),80.f,34.f);
+                const auto cyan=active ? juce::Colour(0xff7af8ee)
+                                       : juce::Colour(0xff4e9f9d);
+                g.setColour(juce::Colour(0xff091519));
+                g.fillRoundedRectangle(outline,4.f);
+                g.setColour(cyan.withAlpha(active ? 1.f : .65f));
+                g.drawRoundedRectangle(outline,4.f,active ? 1.8f : 1.2f);
+                g.setFont(juce::Font(juce::FontOptions(13.f)));
+                g.drawFittedText(text,outline.toNearestInt(),
+                                 juce::Justification::centred,1);
+            };
+            const auto* mid=processor.state.getRawParameterValue("bax_mid_in");
+            const auto* side=processor.state.getRawParameterValue("bax_side_in");
+            indicator(mid && mid->load(std::memory_order_relaxed)>.5f,6,"MID");
+            indicator(side && side->load(std::memory_order_relaxed)>.5f,50,"SIDE");
         }
         if(index==3) {
             // Four independently outlined EQ bands, kept clear of all hit targets.
