@@ -114,6 +114,20 @@ if(STEAMMASTER_BUILD_VST3)
     assets/dropdown_short.png
     assets/dropdown_long.png
     assets/SteamMaster_EZ_knob_standard_256.png
+    assets/SteamMaster_EZ_knob_compact_128.png
+    assets/SteamMaster_EZ_knob_master_512.png
+    assets/toggle_large_on.png
+    assets/toggle_large_off.png
+    assets/toggle_small_on_alt.png
+    assets/toggle_small_off_alt.png
+    assets/mid_active.png
+    assets/mid_inactive.png
+    assets/side_active.png
+    assets/side_inactive.png
+    assets/tp_on.png
+    assets/tp_off.png
+    assets/led_amber.png
+    assets/led_off.png
   )
   juce_add_plugin(SteamMasterEZ COMPANY_NAME "ThomC" BUNDLE_ID "com.thomc.steammaster.ez" PLUGIN_MANUFACTURER_CODE ThmC PLUGIN_CODE SmE1 FORMATS VST3 PRODUCT_NAME "SteamMaster EZ" IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE COPY_PLUGIN_AFTER_BUILD FALSE)
   target_sources(SteamMasterEZ PRIVATE plugin/PluginProcessor.cpp plugin/PluginProcessor.h plugin/PluginEditor.cpp plugin/PluginEditor.h)

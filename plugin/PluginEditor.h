@@ -24,8 +24,8 @@ private:
     SteamMasterProcessor& processor;
     std::unique_ptr<juce::LookAndFeel_V4> skin;
     juce::Component rackCanvas;
-    static constexpr int designWidth = 1440;
-    static constexpr int headerHeight = 70;
+    static constexpr int designWidth = 1672;
+    static constexpr int headerHeight = 66;
     static constexpr int footerHeight = 8;
     static constexpr int moduleGap = 5;
     int rackHeight = 0;
