@@ -11,8 +11,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure JUCE and DSP tests
         run: cmake -S . -B build-ez -DSTEAMMASTER_BUILD_VST3=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
-      - name: Build SteamMaster EZ and plugin host test
-        run: cmake --build build-ez --config Release --target SteamMasterEZ_VST3 steammaster_plugin_host_smoke --parallel 2
+      - name: Build all DSP tests, JUCE host test and Windows VST3
+        run: |
+          cmake --build build-ez --config Release --parallel 2
+          cmake --build build-ez --config Release --target SteamMasterEZ_VST3 --parallel 2
       - name: Run complete JUCE and DSP stress suite
         run: ctest --test-dir build-ez -C Release --output-on-failure
       - name: Print CPU safety benchmarks
