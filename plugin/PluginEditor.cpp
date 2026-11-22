@@ -198,7 +198,12 @@ public:
         title.setBounds(2, 2, w - 4, 13);
         if (knob) knob->setBounds(2, 14, w - 4, h - 16);
         if (combo) combo->setBounds(4, 31, w - 8, 29);
-        if (toggle) toggle->setBounds(4, 31, w - 8, 29);
+        if (toggle) {
+            // Keep hardware switches compact and centred on every rack size.
+            // The approved switch geometry is never independently stretched.
+            const int switchWidth=juce::jmax(24,juce::jmin(82,w-8));
+            toggle->setBounds((w-switchWidth)/2,31,switchWidth,29);
+        }
     }
 
 private:

@@ -13,8 +13,10 @@ jobs:
         run: cmake -S . -B build-ez -DSTEAMMASTER_BUILD_VST3=ON -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
       - name: Build SteamMaster EZ and plugin host test
         run: cmake --build build-ez --config Release --target SteamMasterEZ_VST3 steammaster_plugin_host_smoke --parallel 2
-      - name: Run JUCE plugin smoke test
-        run: ctest --test-dir build-ez -C Release -R SteamMasterPluginHostSmoke --output-on-failure
+      - name: Run complete JUCE and DSP stress suite
+        run: ctest --test-dir build-ez -C Release --output-on-failure
+      - name: Print CPU safety benchmarks
+        run: ctest --test-dir build-ez -C Release -R SteamMasterCPUSafety -V
       - name: Publish actual JUCE-rendered Foundry screenshot
         uses: actions/upload-artifact@v4
         with:

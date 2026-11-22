@@ -142,9 +142,12 @@ void Module::setCommon(CommonControls p) noexcept {
     enabled_.set(p.in?1.:0.);mix_.set(clamp(p.mix,0.,1.));
 }
 Stereo Module::process(Stereo in) noexcept {
-    auto w=processWet(in);
-    auto dry=dryDelay_.process(in);
-    return lerp(dry,w,enabled_.next()*mix_.next());
+    const auto dry=dryDelay_.process(in);
+    const double wetAmount=enabled_.next()*mix_.next();
+    // A settled bypass must not run the expensive nonlinear/oversampled wet path.
+    // The latency-matched dry delay continues to advance even in bypass.
+    if(wetAmount<=0.) return dry;
+    return lerp(dry,processWet(in),wetAmount);
 }
 
 // Progressive Manley Variable Mu COMP and LIMIT characteristics. The

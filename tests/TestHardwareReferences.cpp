@@ -93,6 +93,12 @@ void furnaceGoldLab()
     legacy.prepare(48000.);p.goldMode=false;legacy.set(p);
     approved.reset();
     approved.set(p);
+    // The previous two units had different threshold-smoother histories.
+    // Equalise state with silence before comparing their GOLD-off outputs.
+    for(int i=0;i<48000;++i) {
+        approved.process({0.,0.});
+        legacy.process({0.,0.});
+    }
     double error=0.;
     for(int i=0;i<48000;++i){
         const double x=.2*std::sin(2.*pi*997.*double(i)/48000.);

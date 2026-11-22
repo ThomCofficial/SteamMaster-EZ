@@ -252,6 +252,10 @@ void MasterLimiter::prepare(double sampleRate) noexcept {
     fastRise_=smoothCoef(fs_,.008);fastFall_=smoothCoef(fs_,.080);
     sustainRise_=smoothCoef(fs_,.060);sustainFall_=smoothCoef(fs_,.280);
     releaseScale_=-1000./fs_;
+    shortEnergyCoef_=smoothCoef(fs_,.008);
+    longEnergyCoef_=smoothCoef(fs_,.180);
+    lowFreqCoef_=1.-std::exp(-2.*kPi*110./fs_);
+    emergencyReleaseCoefs_={smoothCoef(fs_,.180),smoothCoef(fs_,.075),smoothCoef(fs_,.120)};
     audioLatency_=35u+static_cast<std::size_t>(std::ceil(fs_*.005));
     // Additional fixed post-limiter lookahead for true-peak correction;
     // kept in the latency even with TP OFF so mode changes are click-free.
@@ -326,6 +330,19 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
     // 35-sample FIR delay; its associated waveform emerges from the post
     // delay another 2ms later, allowing correction before output. This stage
     // carries NO new user parameters or GUI features.
+    // A fully disabled true-peak stage is only a latency-matched delay.
+    const double mix=postMix_.next();
+    if(mix==0.) {
+        postBuffer_[postCursor_]=input;
+        postGainHistory_[postCursor_]=prePostEffectiveGain_;
+        const auto read=(postCursor_+kCapacity-(postLatency_%kCapacity))%kCapacity;
+        const auto delayed=postBuffer_[read];
+        const auto effective=postGainHistory_[read];
+        if(++postCursor_==kCapacity)postCursor_=0;
+        reductionDb_={-gainToDb(clamp(effective.l,1.e-15,1.)),
+                      -gainToDb(clamp(effective.r,1.e-15,1.))};
+        return delayed;
+    }
     const auto p=postPeak(input);
     const double target=ceiling*dbToGain(-.35); // conservative ISP margin for higher-rate sweeps
     const double linked=std::max(p.l,p.r);
@@ -366,7 +383,6 @@ Stereo MasterLimiter::postTruePeakGuard(Stereo input,double ceiling) noexcept {
     const auto delayed=postBuffer_[read];
     const auto effective=postGainHistory_[read];
     if(++postCursor_==kCapacity)postCursor_=0;
-    const double mix=postMix_.next();
     // Meter the actual applied attenuation of BOTH gain-control stages.
     // The bypass crossfade and post-stage crossfade are accounted for; the
     // threshold's pre-gain is deliberately excluded (it is not reduction).
@@ -393,22 +409,41 @@ Stereo MasterLimiter::measureOutput(Stereo output) noexcept {
 }
 
 Stereo MasterLimiter::process(Stereo input) noexcept {
+    const double en=bypass_.next();
     const double pre=inputGain_.next();
     const Stereo driven{sanitized(input.l*pre),sanitized(input.r*pre)};
+    // A settled bypass keeps latency, without running redundant 8x true-peak
+    // FIR filters and gain envelopes for an inaudible wet processing path.
+    if(en==0.) {
+        audioBuffer_[audioCursor_]=driven;
+        dryBuffer_[audioCursor_]=input;
+        const auto delayedIndex=(audioCursor_+kCapacity-(audioLatency_%kCapacity))%kCapacity;
+        const Stereo delayed=dryBuffer_[delayedIndex];
+        if(++audioCursor_==kCapacity)audioCursor_=0;
+        if(++peakCursor_==kCapacity)peakCursor_=0;
+        postBuffer_[postCursor_]=delayed;
+        postGainHistory_[postCursor_]={1.,1.};
+        const auto read=(postCursor_+kCapacity-(postLatency_%kCapacity))%kCapacity;
+        const Stereo out=postBuffer_[read];
+        if(++postCursor_==kCapacity)postCursor_=0;
+        reductionDb_={};
+        outputTruePeak_=std::max({std::abs(out.l),std::abs(out.r),outputTruePeak_*.99998});
+        return out;
+    }
     // Short/long detector energy estimates provide program context and
     // a low-frequency awareness cue for more natural recovery.
     const double power=.5*(driven.l*driven.l+driven.r*driven.r);
-    const double shortC=smoothCoef(fs_,.008),longC=smoothCoef(fs_,.180);
+    const double shortC=shortEnergyCoef_,longC=longEnergyCoef_;
     shortEnergy_=power+(shortEnergy_-power)*shortC;
     longEnergy_=power+(longEnergy_-power)*longC;
-    const double lfCoefficient=1.-std::exp(-2.*3.141592653589793*110./fs_);
+    const double lfCoefficient=lowFreqCoef_;
     lowpass_.l+=lfCoefficient*(driven.l-lowpass_.l);
     lowpass_.r+=lfCoefficient*(driven.r-lowpass_.r);
     const double lfPower=.5*(lowpass_.l*lowpass_.l+lowpass_.r*lowpass_.r);
     lowEnergy_=lfPower+(lowEnergy_-lfPower)*longC;
     const double energyPersistence=clamp(longEnergy_/std::max(kSmall,shortEnergy_),0.,1.);
     const double bassShare=clamp(lowEnergy_/std::max(kSmall,longEnergy_),0.,1.);
-    const auto tp=getPeak(driven);
+    const auto tp=truePeak_?getPeak(driven):Stereo{};
     peakBuffer_[peakCursor_]=tp;
     // The 8x FIR reconstruction detector has an inherent 35 host-sample delay.
     // Sample-peak mode is delayed equivalently to maintain identical timing.
@@ -495,7 +530,6 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     const auto delayedIndex=(audioCursor_+kCapacity-(audioLatency_%kCapacity))%kCapacity;
     const Stereo delayed=audioBuffer_[delayedIndex];
     const Stereo dry=dryBuffer_[delayedIndex];
-    const double en=bypass_.next();
     prePostEffectiveGain_={1.-en+en*gain_.l,1.-en+en*gain_.r};
     Stereo wet{delayed.l*gain_.l,delayed.r*gain_.r};
     // Linked emergency *gain* control rather than flattening each channel
@@ -507,9 +541,7 @@ Stereo MasterLimiter::process(Stereo input) noexcept {
     if(need<1.) ++safetyClipEvents_; // Telemetry: detector headroom still matters.
     if(need<emergencyGain_) emergencyGain_=need;
     else {
-        const double recovery=mode_==LimiterMode::Punch?.075:
-                              (mode_==LimiterMode::Modern?.120:.180);
-        const double c=smoothCoef(fs_,recovery);
+        const double c=emergencyReleaseCoefs_[static_cast<std::size_t>(mode_)];
         emergencyGain_=need+c*(emergencyGain_-need);
     }
     wet.l*=emergencyGain_;wet.r*=emergencyGain_;
