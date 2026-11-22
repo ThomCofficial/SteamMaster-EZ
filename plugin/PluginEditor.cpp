@@ -107,7 +107,7 @@ public:
     {
         const auto id=button.getComponentID();
         const bool large=id=="global_in";
-        const bool tp=id=="limiter_true_peak";
+        const bool tp=false; // Limiter TP is a hardware toggle; header owns TP lamp.
         const bool alt=id=="shadow_optical_in" || id=="shadow_discrete_in";
         const auto img=tp
             ? (button.getToggleState()
@@ -126,7 +126,7 @@ public:
                         : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_png,BinaryData::toggle_small_off_pngSize));
         if (img.isValid())
             g.drawImageWithin(img, 0, 0, button.getWidth(), button.getHeight(),
-                              juce::RectanglePlacement::centred, false);
+                              juce::RectanglePlacement::stretchToFit, false);
         // Accurate ON/OFF state text rendered live, not baked into a stretched sprite.
         g.setColour(button.getToggleState() ? juce::Colour(0xffffd08a) : juce::Colour(0xffc1b7aa));
         g.setFont(juce::Font(juce::FontOptions(large ? 10.f : 9.f)));
@@ -681,6 +681,13 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     const bool limiterOn = processor.state.getRawParameterValue("limiter_in")->load(std::memory_order_relaxed) > 0.5f;
     const float actualTPDb = juce::Decibels::gainToDecibels(juce::jmax(0.000001f, actualTP));
     const bool warning = limiterOn && actualTPDb > ceiling + 0.05f;
+    const bool tpEnabled=processor.state.getRawParameterValue("limiter_true_peak")
+        ->load(std::memory_order_relaxed)>0.5f;
+    const auto tpLamp=tpEnabled
+       ? juce::ImageCache::getFromMemory(BinaryData::tp_on_png,BinaryData::tp_on_pngSize)
+       : juce::ImageCache::getFromMemory(BinaryData::tp_off_png,BinaryData::tp_off_pngSize);
+    if(tpLamp.isValid())
+        g.drawImageWithin(tpLamp,995,21,44,24,juce::RectanglePlacement::stretchToFit,false);
     g.setColour(warning ? juce::Colour(0xfff28a75) : secondaryText);
     g.setFont(juce::Font(juce::FontOptions(11.f)));
     const auto label = limiterOn ? ("TP " + juce::String(actualTPDb, 1) + " dBTP") : juce::String("TP --");
