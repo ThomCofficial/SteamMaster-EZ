@@ -81,8 +81,10 @@ void checkExciterHostSignalPath() {
 
 int main(){
   juce::ScopedJuceInitialiser_GUI juceInitialiser;
+  std::cerr<<"HOST_STAGE: JUCE_INITIALIZED"<<std::endl;
   std::mt19937 rng(0x534d);
   for(double fs:{44100.,48000.,96000.}){
+    std::cerr<<"HOST_STAGE: RATE_BEGIN "<<fs<<std::endl;
     auto p=std::make_unique<SteamMasterProcessor>();
     // All sound-changing modules start bypassed; global signal path stays enabled
     // so switching on any individual processor immediately works.
@@ -102,6 +104,7 @@ int main(){
         global == nullptr || global->load() != 1.f)
         throw std::runtime_error("global signal path must remain enabled");
     p->prepareToPlay(fs,512);
+    std::cerr<<"HOST_STAGE: PREPARED "<<fs<<std::endl;
     if(p->getLatencySamples()<=0)throw std::runtime_error("latency not reported");
     if(!p->hasEditor())throw std::runtime_error("missing editor");
     // GR telemetry must be independent for Ocean and Furnace. This is a
@@ -183,7 +186,9 @@ int main(){
           throw std::runtime_error("True Peak ON did not reach the DSP");
     }
     {
+      std::cerr<<"HOST_STAGE: EDITOR_CREATE "<<fs<<std::endl;
       std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+      std::cerr<<"HOST_STAGE: EDITOR_CREATED "<<fs<<std::endl;
       if(!editor || editor->getWidth()<300)throw std::runtime_error("editor invalid");
       // Produce the REAL JUCE-rendered screenshot from the Windows host test,
       // not a generated illustration or a PNG sent by the user.
@@ -210,6 +215,7 @@ int main(){
           // Exercise the REAL GUI against live stereo audio. An active stereo
           // trace must differ from idle, and two reel frames must differ
           // without moving any other module artwork or its JUCE controls.
+          std::cerr<<"HOST_STAGE: IDLE_SCREENSHOT_WRITTEN"<<std::endl;
           auto* tape=p->state.getParameter("tape_in");
           auto* stereo=p->state.getParameter("stereo_in");
           if(!tape || !stereo)
@@ -247,6 +253,7 @@ int main(){
                           ++different;
               return different;
           };
+          std::cerr<<"HOST_STAGE: ANIMATED_FRAMES_CAPTURED"<<std::endl;
           const auto reelDelta=pixelsDifferent(animatedA,animatedB,
                                                 {1350,705,270,73});
           const auto scopeDelta=pixelsDifferent(snapshot,animatedB,
@@ -262,6 +269,7 @@ int main(){
           if(!activeStream.openedOk() || !png.writeImageToStream(animatedB,activeStream))
               throw std::runtime_error("animated JUCE preview PNG failed");
           activeStream.flush();
+          std::cerr<<"HOST_STAGE: ACTIVE_SCREENSHOT_WRITTEN"<<std::endl;
           tape->setValueNotifyingHost(0.f);
           stereo->setValueNotifyingHost(0.f);
       }
@@ -292,7 +300,9 @@ int main(){
           if(identified==nullptr || findByID(editor.get(), identified->paramID)==nullptr)
               throw std::runtime_error("missing native control for DSP parameter");
       }
+      std::cerr<<"HOST_STAGE: EDITOR_MAIN_READY_TO_DESTROY "<<fs<<std::endl;
     }
+    std::cerr<<"HOST_STAGE: EDITOR_MAIN_DESTROYED "<<fs<<std::endl;
     // Repeated editor opening, resizing and destruction must not leak resources
     // or leave dangling APVTS attachments after the editor is removed.
     if (fs == 48000.) {
@@ -308,6 +318,7 @@ int main(){
             // editor ownership and parameter-attachment teardown are still tested.
         }
     }
+    std::cerr<<"HOST_STAGE: RECREATE_DONE "<<fs<<std::endl;
     juce::AudioBuffer<float> audio(2,512);
     juce::MidiBuffer midi;
     const auto& params=p->getParameters();
@@ -325,7 +336,12 @@ int main(){
     if(state.getSize()==0)throw std::runtime_error("state not saved");
     p->setStateInformation(state.getData(),int(state.getSize()));
     p->releaseResources();
+    std::cerr<<"HOST_STAGE: PROCESSOR_PRE_DESTROY "<<fs<<std::endl;
+    p.reset();
+    std::cerr<<"HOST_STAGE: PROCESSOR_DESTROYED "<<fs<<std::endl;
     std::cout<<"host smoke pass "<<fs<<" Hz\n";
   }
+  std::cerr<<"HOST_STAGE: EXCITER_BEGIN"<<std::endl;
   checkExciterHostSignalPath();
+  std::cerr<<"HOST_STAGE: EXCITER_DONE"<<std::endl;
 }
