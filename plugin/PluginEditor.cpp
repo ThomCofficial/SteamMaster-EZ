@@ -289,7 +289,26 @@ public:
         {
             combo = std::make_unique<juce::ComboBox>();
             combo->setColour(juce::ComboBox::arrowColourId,accent);
-            combo->addItemList(choice->choices, 1);
+            // Pretty-print stepped frequency choices without changing any
+            // parameter indices, automation identities or DSP values.
+            auto displayChoices=choice->choices;
+            if(id.contains("freq") || id.endsWith("_hpf") || id.endsWith("_lpf")) {
+                for(auto& entry:displayChoices) {
+                    if(entry.equalsIgnoreCase("Off") || entry.equalsIgnoreCase("Out"))
+                        continue;
+                    if(entry.endsWithIgnoreCase("k")) {
+                        entry=entry.dropLastCharacters(1)+" kHz";
+                    } else {
+                        const double hz=entry.getDoubleValue();
+                        if(hz>=1000.)
+                            entry=juce::String(hz/1000.,
+                                std::abs(hz/1000.-std::round(hz/1000.))<.001?0:1)+" kHz";
+                        else if(hz>0.)
+                            entry=entry+" Hz";
+                    }
+                }
+            }
+            combo->addItemList(displayChoices,1);
             combo->setTooltip(parameter.getName(256) + ": choose a stepped setting.");
             addAndMakeVisible(*combo);
             comboAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
