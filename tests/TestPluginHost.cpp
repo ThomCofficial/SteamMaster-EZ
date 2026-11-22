@@ -206,6 +206,64 @@ int main(){
           if(!png.writeImageToStream(snapshot,stream))
               throw std::runtime_error("Foundry screenshot PNG encoding failed");
           stream.flush();
+
+          // Exercise the REAL GUI against live stereo audio. An active stereo
+          // trace must differ from idle, and two reel frames must differ
+          // without moving any other module artwork or its JUCE controls.
+          auto* tape=p->state.getParameter("tape_in");
+          auto* stereo=p->state.getParameter("stereo_in");
+          if(!tape || !stereo)
+              throw std::runtime_error("missing animation / stereo parameters");
+          tape->setValueNotifyingHost(1.f);
+          stereo->setValueNotifyingHost(1.f);
+          juce::AudioBuffer<float> animated(2,512);
+          juce::MidiBuffer animationsMidi;
+          for(int block=0;block<12;++block) {
+              for(int sample=0;sample<512;++sample) {
+                  const float x=float(block*512+sample);
+                  animated.setSample(0,sample,.44f*std::sin(x*.063f));
+                  animated.setSample(1,sample,.31f*std::cos(x*.079f));
+              }
+              p->processBlock(animated,animationsMidi);
+          }
+          juce::Thread::sleep(85);
+          juce::Timer::callPendingTimersSynchronously();
+          const auto animatedA=editor->createComponentSnapshot(
+              editor->getLocalBounds(),true,1.f);
+          juce::Thread::sleep(85);
+          juce::Timer::callPendingTimersSynchronously();
+          const auto animatedB=editor->createComponentSnapshot(
+              editor->getLocalBounds(),true,1.f);
+          if(animatedA.isNull() || animatedB.isNull())
+              throw std::runtime_error("animated JUCE screenshots invalid");
+
+          const auto pixelsDifferent=[](const juce::Image& a,
+                                         const juce::Image& b,
+                                         juce::Rectangle<int> region) {
+              int different=0;
+              for(int y=region.getY(); y<region.getBottom(); y+=3)
+                  for(int x=region.getX(); x<region.getRight(); x+=3)
+                      if(a.getPixelAt(x,y)!=b.getPixelAt(x,y))
+                          ++different;
+              return different;
+          };
+          const auto reelDelta=pixelsDifferent(animatedA,animatedB,
+                                                {1350,705,270,73});
+          const auto scopeDelta=pixelsDifferent(snapshot,animatedB,
+                                                 {1337,789,260,58});
+          if(reelDelta<12)
+              throw std::runtime_error("tape reels did not animate in rendered editor");
+          if(scopeDelta<12)
+              throw std::runtime_error("stereo scope did not respond to live audio");
+
+          const auto activeOutput=juce::File::getCurrentWorkingDirectory()
+                 .getChildFile("SteamMaster-EZ-Active-Tape-Scope.png");
+          juce::FileOutputStream activeStream(activeOutput);
+          if(!activeStream.openedOk() || !png.writeImageToStream(animatedB,activeStream))
+              throw std::runtime_error("animated JUCE preview PNG failed");
+          activeStream.flush();
+          tape->setValueNotifyingHost(0.f);
+          stereo->setValueNotifyingHost(0.f);
       }
       // All parameter cells must be present, including Parametric Band 4 Gain.
       // Resizing MUST NOT change any virtual control coordinate.
