@@ -65,10 +65,10 @@ public:
         setColour(juce::ComboBox::textColourId, foundry::ivory);
         setColour(juce::ComboBox::arrowColourId, foundry::ivory);
         setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
-        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff202932));
+        setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff15100e));
         setColour(juce::Label::textColourId, secondaryText);
         setColour(juce::Slider::textBoxTextColourId, foundry::ivory);
-        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff111820));
+        setColour(juce::Slider::textBoxBackgroundColourId, juce::Colour(0xff110e0d));
         setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
         setColour(juce::PopupMenu::backgroundColourId, juce::Colour(0xff1c242d));
         setColour(juce::PopupMenu::textColourId, foundry::ivory);
@@ -92,7 +92,10 @@ public:
                 : juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_standard_256_png,
                                                    BinaryData::SteamMaster_EZ_knob_standard_256_pngSize);
         if(!img.isValid())return;
-        const float dia=juce::jmin(float(w),float(h))*(master?.98f:.97f);
+        // Larger hardware dial, still contained by its labelled JUCE cell.
+        // Compensate for the horizontal text box and JUCE rotary drawing area.
+        const float targetScale=master ? 1.16f : compact ? 1.18f : 1.17f;
+        const float dia=juce::jmin(float(w)*.82f,float(h)*targetScale);
         if (dia < 4.f) return;
         const auto tr = juce::AffineTransform::translation(
             -img.getWidth()*.5f, -img.getHeight()*.5f)
@@ -107,7 +110,8 @@ public:
     {
         const auto id=button.getComponentID();
         const bool large=id=="global_in";
-        const bool tp=false; // Limiter TP is a hardware toggle; header owns TP lamp.
+        // The True Peak switch is an ordinary toggle in the limiter rack.
+        // The separate amber TP indicator is display-only in the header.
         const bool alt=id=="shadow_optical_in" || id=="shadow_discrete_in";
         const auto img=tp
             ? (button.getToggleState()
@@ -129,8 +133,8 @@ public:
                               juce::RectanglePlacement::stretchToFit, false);
         // Accurate ON/OFF state text rendered live, not baked into a stretched sprite.
         g.setColour(button.getToggleState() ? juce::Colour(0xffffd08a) : juce::Colour(0xffc1b7aa));
-        g.setFont(juce::Font(juce::FontOptions(large ? 10.f : 9.f)));
-        const auto labelArea=button.getLocalBounds().withTrimmedLeft(large ? 40 : 28).reduced(2,0);
+        g.setFont(juce::Font(juce::FontOptions(large ? 10.f : 8.5f)));
+        const auto labelArea=button.getLocalBounds().withTrimmedLeft(large ? 42 : 32).reduced(2,0);
         g.drawFittedText(button.getToggleState() ? "ON" : "OFF", labelArea,
                          juce::Justification::centred, 1);
     }
@@ -214,11 +218,12 @@ juce::String formatParameterValue(const juce::String& id, double value)
     {
         if (value >= 1000.0)
             return juce::String(value / 1000.0, value >= 10000.0 ? 1 : 2) + " kHz";
-        return wholeOrOneDecimal(value) + "Hz";
+        return wholeOrOneDecimal(value) + " Hz";
     }
     if (percentage) return wholeOrOneDecimal(value) + "%";
-    if (milliseconds) return wholeOrOneDecimal(value) + "ms";
-    if (decibels) return wholeOrOneDecimal(value) + "dB";
+    if (milliseconds) return wholeOrOneDecimal(value) + " ms";
+    if (decibels) return wholeOrOneDecimal(value)
+                              + (id.contains("ceiling") ? " dBTP" : " dB");
     if (id.endsWith("_q")) return juce::String(value, 2);
     return wholeOrOneDecimal(value);
 }
@@ -255,7 +260,7 @@ public:
                                                  .replace("Attenuation", "Atten")
                                                  .replace("Oversampling", "OS");
         title.setText(name.toUpperCase(), juce::dontSendNotification);
-        title.setFont(juce::Font(juce::FontOptions(10.5f)));
+        title.setFont(juce::Font(juce::FontOptions(10.7f)));
         setComponentID(id);
         title.setJustificationType(juce::Justification::centred);
         title.setColour(juce::Label::textColourId, foundry::muted);
@@ -318,8 +323,8 @@ public:
         if(h < 54) {
             title.setBounds(1,0,w-2,12);
             if (knob) {
-                knob->setTextBoxStyle(juce::Slider::TextBoxRight,false,42,15);
-                knob->setBounds(2,12,w-4,h-13);
+                knob->setTextBoxStyle(juce::Slider::TextBoxRight,false,44,16);
+                knob->setBounds(2,10,w-4,h-11);
             }
             if (combo) {
                 const int cw=juce::jmin(105, w-6);
@@ -333,8 +338,8 @@ public:
             title.setBounds(1,1,w-2,14);
             if (knob) {
                 // Rotary image + exact JUCE parameter value stay inside one cell.
-                knob->setTextBoxStyle(juce::Slider::TextBoxBelow,false,juce::jmax(36,w-8),17);
-                knob->setBounds(1,15,w-2,h-16);
+                knob->setTextBoxStyle(juce::Slider::TextBoxBelow,false,juce::jmax(36,w-7),16);
+                knob->setBounds(0,13,w,h-14);
             }
             if (combo) {
                 const int cw=juce::jmin(126,w-2);
@@ -342,7 +347,7 @@ public:
             }
             if (toggle) {
                 const int tw=juce::jmin(100,w-2);
-                toggle->setBounds((w-tw)/2,29,tw,juce::jmin(30,h-30));
+                toggle->setBounds((w-tw)/2,28,tw,juce::jmin(32,h-29));
             }
         }
     }
@@ -571,52 +576,53 @@ public:
         switch(index) {
             case 1:
                 jassert(controls.size()==4);
-                place(0,438,110,4,78);
-                place(1,737,105,2,79);
-                place(2,1063,105,2,79);
-                place(3,1425,163,4,77);
+                place(0,438,112,3,80);
+                place(1,737,124,1,81);
+                place(2,1063,124,1,81);
+                place(3,1425,173,3,79);
                 break;
             case 2:
                 row({343,427,512,604,699,785,868,
-                     957,1052,1138,1233,1325,1417,1508,1598},76);
+                     957,1052,1138,1233,1325,1417,1508,1598},79);
                 break;
             case 3:
                 // IN/MIX/OUT + 4 × (TYPE/FREQUENCY/Q/GAIN), always one row.
                 row({326,397,467,552,621,689,754,
                      825,897,965,1034,
                      1101,1171,1237,1304,
-                     1377,1450,1523,1596},62,5,getHeight()-11);
+                     1377,1450,1523,1596},67,4,getHeight()-8);
                 for(int i:{3,7,11,15}) {
                     const int cx=(i==3?552:i==7?825:i==11?1101:1377);
-                    place(i,cx,80,5,getHeight()-11);
+                    place(i,cx,79,4,getHeight()-8);
                 }
                 break;
             case 4:
-                row({346,465,582,697,805,925,1047,1162,1293,1448,1570},91);
+                row({346,465,582,697,805,925,1047,1162,1293,1448,1570},96);
                 break;
             case 5:
-                row({337,427,527,627,720,815,914,1017,1107,1204,1293,1416,1569},86);
+                row({337,427,527,627,720,815,914,1017,1107,1204,1293,1416,1569},90);
                 break;
             case 6:
-                row({360,498,642,787,928,1082,1237,1395,1554},107);
+                row({360,498,642,787,928,1082,1237,1395,1554},112);
                 break;
             case 7:
                 jassert(controls.size()==16);
                 for(int i=0;i<16;++i) {
                     const int xs[]{432,598,759,874,1033,1171,1361,1530};
                     const int col=i%8;
-                    const int w=col==0 ? 86 : (col==3||col==5 ? 84 : 111);
+                    // 118 px for Bax gain/output: sufficient knob face and editable value.
+                    const int w=col==0 ? 98 : (col==3||col==5||col==7 ? 118 : 108);
                     place(i,xs[col],w,5+(i/8)*44,39);
                 }
                 break;
             case 8:
-                row({360,516,661,811,955,1084,1214},112);
+                row({360,516,661,811,955,1084,1214},116);
                 break;
             case 9:
-                row({353,558,736,924,1112,1263},136);
+                row({353,558,736,924,1112,1263},140);
                 break;
             case 10:
-                row({357,501,649,770,890,1082,1212,1374,1550},108);
+                row({357,501,649,770,890,1082,1212,1374,1550},114);
                 break;
             default:
                 break;
