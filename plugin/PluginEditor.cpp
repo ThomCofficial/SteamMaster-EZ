@@ -146,15 +146,30 @@ public:
                     : (button.getToggleState()
                         ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_png,BinaryData::toggle_small_on_pngSize)
                         : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_png,BinaryData::toggle_small_off_pngSize));
-        if (img.isValid())
-            g.drawImageWithin(img, 0, 0, button.getWidth(), button.getHeight(),
-                              juce::RectanglePlacement::stretchToFit, false);
-        // Accurate ON/OFF state text rendered live, not baked into a stretched sprite.
-        g.setColour(button.getToggleState() ? juce::Colour(0xffffd08a) : juce::Colour(0xffc1b7aa));
-        g.setFont(juce::Font(juce::FontOptions(large ? 10.f : 8.5f)));
-        const auto labelArea=button.getLocalBounds().withTrimmedLeft(large ? 42 : 32).reduced(2,0);
-        g.drawFittedText(button.getToggleState() ? "ON" : "OFF", labelArea,
-                         juce::Justification::centred, 1);
+        if (!img.isValid()) return;
+        // Never stretch approved switch sprites across the entire JUCE hit box.
+        // Keep their original pixel aspect ratio and centred hardware dimensions,
+        // while retaining the full (generous) invisible clickable component.
+        const float nativeRatio=float(img.getWidth())/
+                                float(juce::jmax(1,img.getHeight()));
+        const int maxHeight=large ? 32 : 30;
+        const int displayHeight=juce::jmax(1,juce::jmin(maxHeight,button.getHeight()-2));
+        const int naturalWidth=juce::roundToInt(float(displayHeight)*nativeRatio);
+        const int imageWidth=juce::jmax(1,juce::jmin(button.getWidth()-2,naturalWidth));
+        const int imageHeight=juce::jmax(1,juce::jmin(displayHeight,
+                                      juce::roundToInt(float(imageWidth)/nativeRatio)));
+        const auto imageX=(button.getWidth()-imageWidth)/2;
+        const auto imageY=(button.getHeight()-imageHeight)/2;
+        g.drawImage(img,imageX,imageY,imageWidth,imageHeight,
+                    0,0,img.getWidth(),img.getHeight(),false);
+        // State text tracks the actual sprite, not its oversized clickable area.
+        g.setColour(button.getToggleState() ? juce::Colour(0xffffd08a) :
+                                                juce::Colour(0xffc1b7aa));
+        g.setFont(juce::Font(juce::FontOptions(large ? 9.5f : 8.f)));
+        const int textLeft=imageX+juce::roundToInt(float(imageWidth)*.57f);
+        g.drawFittedText(button.getToggleState() ? "ON" : "OFF",
+                         textLeft,imageY,imageX+imageWidth-textLeft-2,imageHeight,
+                         juce::Justification::centred,1);
     }
 
     void drawComboBox(juce::Graphics& g, int width, int height, bool,
@@ -396,10 +411,18 @@ public:
                 toggle->setBounds((w-tw)/2,14,tw,juce::jmin(28,h-15));
             }
         } else {
-            title.setBounds(1,1,w-2,14);
+            title.setBounds(1,3,w-2,13);
             if (knob) {
                 // Rotary image + exact JUCE parameter value stay inside one cell.
-                knob->setTextBoxStyle(juce::Slider::TextBoxBelow,false,juce::jmax(36,w-7),16);
+                // Value-box width is independent from the clickable rotary cell.
+                // This restores the reference's compact engraving under large
+                // master, Tape, Exciter, Pultec and Stereo controls.
+                const auto controlID=getComponentID();
+                const bool masterTrim=controlID=="global_input_db" ||
+                                      controlID=="global_output_db";
+                const int valueWidth=juce::jmax(34,juce::jmin(
+                    masterTrim ? 78 : 82,w-7));
+                knob->setTextBoxStyle(juce::Slider::TextBoxBelow,false,valueWidth,16);
                 knob->setBounds(0,13,w,h-14);
             }
             if (combo) {
@@ -479,11 +502,24 @@ public:
         }
         else
         {
+            // A MID/SIDE toggle must redraw its cyan status even when the other
+            // Baxandall row remains active.
+            if (index == 7) {
+                const auto* mid=processor.state.getRawParameterValue("bax_mid_in");
+                const auto* side=processor.state.getRawParameterValue("bax_side_in");
+                const bool nowMid=mid && mid->load(std::memory_order_relaxed)>.5f;
+                const bool nowSide=side && side->load(std::memory_order_relaxed)>.5f;
+                if(nowMid!=lastMidActive || nowSide!=lastSideActive) {
+                    lastMidActive=nowMid;
+                    lastSideActive=nowSide;
+                    repaint(juce::Rectangle<int>(293,4,85,85));
+                }
+            }
             // Invalidate ONLY the GR readouts, not the entire 1672-pixel rack.
             if (index == 2 || index == 5)
                 repaint(juce::Rectangle<int>(119, 43, 164, 37));
             else if (index == 10)
-                repaint(juce::Rectangle<int>(120, 48, 142, 22));
+                repaint(juce::Rectangle<int>(115, 36, 168, 33));
             // Animation remains GUI-only: no animation calculations on the audio thread.
             if (isActive && (index == 5 || index == 6))
                 repaint(juce::Rectangle<int>(154, 13, 55, 42));
@@ -606,7 +642,7 @@ public:
             const auto drawRow=[&](const juce::String& name,float db,int y,
                                    juce::Colour light) {
                 g.setFont(juce::Font(juce::FontOptions(9.6f)));
-                g.setColour(juce::Colour(0xffe3deda));
+                g.setColour(juce::Colour(0xfff3eee5));
                 g.drawFittedText(name,121,y,47,14,juce::Justification::centredLeft,1);
                 const int lit=juce::jlimit(0,9,int(std::round(db*9.f/18.f)));
                 for(int seg=0;seg<9;++seg) {
@@ -624,21 +660,21 @@ public:
         } else if(index==10) {
             const float raw=processor.limiterReductionDb.load(std::memory_order_relaxed);
             const float db=std::isfinite(raw) ? juce::jlimit(0.f,36.f,std::abs(raw)) : 0.f;
-            const juce::Rectangle<float> grPanel(122.f,38.f,157.f,27.f);
+            const juce::Rectangle<float> grPanel(117.f,38.f,155.f,27.f);
             g.setColour(juce::Colour(0xff1a080b).withAlpha(.89f));
             g.fillRoundedRectangle(grPanel,4.f);
             g.setColour(juce::Colour(0xffff6d6d).withAlpha(.52f));
             g.drawRoundedRectangle(grPanel,4.f,.9f);
             g.setFont(juce::Font(juce::FontOptions(10.2f)));
             g.setColour(juce::Colour(0xffffb9b0));
-            g.drawFittedText("GR",126,43,22,16,juce::Justification::centredLeft,1);
+            g.drawFittedText("GR",121,43,22,16,juce::Justification::centredLeft,1);
             const int lit=juce::jlimit(0,9,int(std::round(db*9.f/18.f)));
             for(int j=0;j<9;++j) {
                 g.setColour(j<lit ? juce::Colour(0xffff6b75) : juce::Colour(0xff4a1820));
-                g.fillRoundedRectangle(juce::Rectangle<float>(151.f+float(j)*5.5f,48.f,4.f,7.f),.8f);
+                g.fillRoundedRectangle(juce::Rectangle<float>(146.f+float(j)*5.5f,48.f,4.f,7.f),.8f);
             }
             g.setColour(juce::Colour(0xffffc7b7));
-            g.drawFittedText(juce::String(db,1)+" dB",204,43,72,16,
+            g.drawFittedText(juce::String(db,1)+" dB",199,43,69,16,
                              juce::Justification::centredRight,1);
         }
     }
@@ -675,10 +711,10 @@ public:
                 row({326,397,467,552,621,689,754,
                      825,897,965,1034,
                      1101,1171,1237,1304,
-                     1377,1450,1523,1596},67,4,getHeight()-8);
+                     1377,1450,1523,1596},67,4,getHeight()-13);
                 for(int i:{3,7,11,15}) {
                     const int cx=(i==3?552:i==7?825:i==11?1101:1377);
-                    place(i,cx,79,4,getHeight()-8);
+                    place(i,cx,79,4,getHeight()-13);
                 }
                 break;
             case 4:
@@ -719,6 +755,7 @@ private:
     juce::String title, description;
     int index = 0;
     bool isActive = false;
+    bool lastMidActive = false, lastSideActive = false;
     std::vector<std::unique_ptr<ParameterCell>> controls;
     std::vector<std::pair<juce::String, int>> groups;
     std::vector<std::atomic<float>*> activeFlags;
