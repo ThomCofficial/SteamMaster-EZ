@@ -33,18 +33,22 @@ public:
     }
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h,
-                          float pos, float start, float end, juce::Slider&) override
+                          float pos, float start, float end, juce::Slider& slider) override
     {
-        // The master channel receives the original high-resolution master dial.
-        // Ordinary controls use the dedicated compact/standard assets, unchanged.
-        const bool master = w >= 92 && h >= 65;
-        const auto img = master
+        // Explicit asset mapping; never guess a dial's type from component size.
+        const auto id=slider.getComponentID();
+        const bool master=id=="global_input_db" || id=="global_output_db";
+        const bool compact=id.startsWith("parametric_band_") || id.startsWith("bax_");
+        const auto img=master
             ? juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_master_512_png,
                                                BinaryData::SteamMaster_EZ_knob_master_512_pngSize)
-            : juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_standard_256_png,
-                                               BinaryData::SteamMaster_EZ_knob_standard_256_pngSize);
-        if (!img.isValid()) return;
-        const float dia = juce::jmin(float(w), float(h)) * (master ? .95f : .97f);
+            : compact
+                ? juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_compact_128_png,
+                                                   BinaryData::SteamMaster_EZ_knob_compact_128_pngSize)
+                : juce::ImageCache::getFromMemory(BinaryData::SteamMaster_EZ_knob_standard_256_png,
+                                                   BinaryData::SteamMaster_EZ_knob_standard_256_pngSize);
+        if(!img.isValid())return;
+        const float dia=juce::jmin(float(w),float(h))*(master?.98f:.97f);
         if (dia < 4.f) return;
         const auto tr = juce::AffineTransform::translation(
             -img.getWidth()*.5f, -img.getHeight()*.5f)
@@ -57,14 +61,25 @@ public:
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
                           bool, bool) override
     {
-        const bool large = button.getWidth() >= 92;
-        const auto img = large
+        const auto id=button.getComponentID();
+        const bool large=id=="global_in";
+        const bool tp=id=="limiter_true_peak";
+        const bool alt=id=="shadow_optical_in" || id=="shadow_discrete_in";
+        const auto img=tp
             ? (button.getToggleState()
-                ? juce::ImageCache::getFromMemory(BinaryData::toggle_large_on_png, BinaryData::toggle_large_on_pngSize)
-                : juce::ImageCache::getFromMemory(BinaryData::toggle_large_off_png, BinaryData::toggle_large_off_pngSize))
-            : (button.getToggleState()
-                ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_png, BinaryData::toggle_small_on_pngSize)
-                : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_png, BinaryData::toggle_small_off_pngSize));
+                ? juce::ImageCache::getFromMemory(BinaryData::tp_on_png,BinaryData::tp_on_pngSize)
+                : juce::ImageCache::getFromMemory(BinaryData::tp_off_png,BinaryData::tp_off_pngSize))
+            : large
+                ? (button.getToggleState()
+                    ? juce::ImageCache::getFromMemory(BinaryData::toggle_large_on_png,BinaryData::toggle_large_on_pngSize)
+                    : juce::ImageCache::getFromMemory(BinaryData::toggle_large_off_png,BinaryData::toggle_large_off_pngSize))
+                : alt
+                    ? (button.getToggleState()
+                        ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_alt_png,BinaryData::toggle_small_on_alt_pngSize)
+                        : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_alt_png,BinaryData::toggle_small_off_alt_pngSize))
+                    : (button.getToggleState()
+                        ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_png,BinaryData::toggle_small_on_pngSize)
+                        : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_png,BinaryData::toggle_small_off_pngSize));
         if (img.isValid())
             g.drawImageWithin(img, 0, 0, button.getWidth(), button.getHeight(),
                               juce::RectanglePlacement::centred, false);
@@ -216,6 +231,7 @@ public:
         else if (dynamic_cast<juce::AudioParameterBool*>(&parameter) != nullptr)
         {
             toggle = std::make_unique<juce::ToggleButton>();
+            toggle->setComponentID(id);
             toggle->setColour(juce::ToggleButton::tickColourId,accent);
             toggle->setClickingTogglesState(true);
             toggle->setTooltip(parameter.getName(256) + ": enable or bypass.");
@@ -226,6 +242,7 @@ public:
         else
         {
             knob = std::make_unique<juce::Slider>();
+            knob->setComponentID(id);
             knob->setColour(juce::Slider::rotarySliderFillColourId,accent);
             knob->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
             knob->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 76, 17);
