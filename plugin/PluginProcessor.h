@@ -38,8 +38,9 @@ public:
     std::atomic<float> limiterMeasuredTruePeak{0.f};
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
-    std::array<juce::AudioProcessorParameter*,108> monitored_{};
-    std::array<float,108> previous_{};
+    // Must match the entire APVTS layout, including limiter_true_peak (parameter 109).
+    std::array<juce::AudioProcessorParameter*,109> monitored_{};
+    std::array<float,109> previous_{};
     bool snapshotValid_=false;
     float v(const char* id) const noexcept {auto* p=state.getRawParameterValue(id);return p?p->load(std::memory_order_relaxed):0.f;}
     void updateDSP() noexcept;

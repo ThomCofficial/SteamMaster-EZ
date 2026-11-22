@@ -9,6 +9,8 @@ This branch is an **unreleased candidate**. Do not replace the existing working 
 - Repeated sample-rate-dependent exponentials are precomputed in prepareToPlay-equivalent setup.
 - GOLD VCA reference comparison warms both units to equivalent threshold-smoothing state before asserting sample-level equivalence.
 - Rack UI switches are capped and centred with code; the approved art is untouched.
+- APVTS snapshot now monitors all **109 parameters** instead of 108: the True Peak switch no longer requires another parameter to change before reaching the DSP.
+- JUCE host tests toggle True Peak independently and repeatedly open, resize and destroy the editor.
 
 ## Automatic safety tests
 - CTest: 14 existing native DSP tests plus SteamMasterCPUSafety.

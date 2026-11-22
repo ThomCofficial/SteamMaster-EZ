@@ -113,6 +113,8 @@ public:
     // active envelope model (not an extra UI parameter).
     Stereo effectiveReleaseMs() const noexcept {return effectiveReleaseMs_;}
     double measuredOutputTruePeak() const noexcept {return outputTruePeak_;}
+    // Read-only diagnostic for host mapping tests, not an additional parameter.
+    bool truePeakEnabled() const noexcept {return truePeak_;}
     // Counts samples where emergency sample-domain clipping was needed.
     // Nonzero here is a warning that protective limiting was insufficient.
     std::uint64_t safetyClipEvents() const noexcept {return safetyClipEvents_;}

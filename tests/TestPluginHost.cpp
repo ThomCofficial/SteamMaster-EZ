@@ -109,6 +109,24 @@ int main(){
     if(auto* gold=p->state.getRawParameterValue("furnace_gold");
        gold==nullptr || gold->load()!=0.f)
         throw std::runtime_error("GOLD VCA must default off for existing projects");
+    // True Peak was the 109th parameter but the host snapshot previously tracked
+    // only 108. Toggle it alone, without changing another control, to catch this.
+    {
+      auto* tp = p->state.getParameter("limiter_true_peak");
+      if(tp == nullptr || !p->rack->limiter.truePeakEnabled())
+          throw std::runtime_error("missing initial true-peak parameter state");
+      juce::AudioBuffer<float> probe(2,512);
+      juce::MidiBuffer probeMidi;
+      probe.clear();
+      tp->setValueNotifyingHost(0.f);
+      p->processBlock(probe,probeMidi);
+      if(p->rack->limiter.truePeakEnabled())
+          throw std::runtime_error("True Peak OFF did not reach the DSP");
+      tp->setValueNotifyingHost(1.f);
+      p->processBlock(probe,probeMidi);
+      if(!p->rack->limiter.truePeakEnabled())
+          throw std::runtime_error("True Peak ON did not reach the DSP");
+    }
     {
       std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
       if(!editor || editor->getWidth()<300)throw std::runtime_error("editor invalid");
@@ -154,6 +172,20 @@ int main(){
           if(identified==nullptr || findByID(editor.get(), identified->paramID)==nullptr)
               throw std::runtime_error("missing native control for DSP parameter");
       }
+    }
+    // Repeated editor opening, resizing and destruction must not leak resources
+    // or leave dangling APVTS attachments after the editor is removed.
+    if (fs == 48000.) {
+        for (int attempt=0; attempt<8; ++attempt) {
+            std::unique_ptr<juce::AudioProcessorEditor> editor(p->createEditor());
+            if (!editor) throw std::runtime_error("editor recreation failed");
+            editor->setSize(900,580);
+            editor->setSize(1580,1050);
+            editor->setSize(1100,780);
+            auto* tp=p->state.getParameter("limiter_true_peak");
+            tp->setValueNotifyingHost((attempt%2)==0?0.f:1.f);
+            juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
+        }
     }
     juce::AudioBuffer<float> audio(2,512);
     juce::MidiBuffer midi;
