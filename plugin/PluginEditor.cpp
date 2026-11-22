@@ -34,7 +34,16 @@ const juce::Image& assembledApprovedFaceplate()
             double(src.getWidth())*double(x)/1440.));};
         const auto ys=[&](int y){return int(std::round(
             double(src.getHeight())*double(y)/1013.));};
-        for(int row=0;row<11;++row) {
+        // Header gets its own cuts to keep the logo clear of RESET and A/B.
+        constexpr int headerSrcX[]{0,555,610,775,944,1440};
+        constexpr int headerDstX[]{0,555,700,834,996,1672};
+        for(int col=0;col<5;++col) {
+            const int sx=xs(headerSrcX[col]);
+            g.drawImage(src,headerDstX[col],0,
+                        headerDstX[col+1]-headerDstX[col],dstY[1],
+                        sx,0,xs(headerSrcX[col+1])-sx,ys(srcY[1]),false);
+        }
+        for(int row=1;row<11;++row) {
             const int sy=ys(srcY[row]), sh=ys(srcY[row+1])-sy;
             for(int col=0;col<3;++col) {
                 const int sx=xs(srcX[col]), sw=xs(srcX[col+1])-sx;
@@ -662,7 +671,7 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     // One inexpensive blit for the faceplate; dynamic controls are separate.
     g.drawImageAt(assembledApprovedFaceplate(),0,0,false);
 
-    const int x = designWidth - 505;
+    const int x = 1090;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
     g.setColour(secondaryText);
     g.drawText("INPUT PEAK", x, 6, 100, 15, juce::Justification::centredLeft);
@@ -771,9 +780,9 @@ void SteamMasterEditor::resized()
                                 .translated(uiOffsetX, uiOffsetY));
     const auto scaled = juce::AffineTransform::scale(uiScale)
                             .translated(uiOffsetX, uiOffsetY);
-    resetAll.setBounds(juce::Rectangle<float>(577.f,16.f,87.f,37.f).transformedBy(scaled).getSmallestIntegerContainer());
-    compareA.setBounds(juce::Rectangle<float>(675.f,16.f,77.f,37.f).transformedBy(scaled).getSmallestIntegerContainer());
-    compareB.setBounds(juce::Rectangle<float>(760.f,16.f,77.f,37.f).transformedBy(scaled).getSmallestIntegerContainer());
+    resetAll.setBounds(juce::Rectangle<float>(586.f,16.f,87.f,37.f).transformedBy(scaled).getSmallestIntegerContainer());
+    compareA.setBounds(juce::Rectangle<float>(699.f,16.f,68.f,37.f).transformedBy(scaled).getSmallestIntegerContainer());
+    compareB.setBounds(juce::Rectangle<float>(771.f,16.f,68.f,37.f).transformedBy(scaled).getSmallestIntegerContainer());
     compareA.setToggleState(currentComparison==0,juce::dontSendNotification);
     compareB.setToggleState(currentComparison==1,juce::dontSendNotification);
     repaint();
