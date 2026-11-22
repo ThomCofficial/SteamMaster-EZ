@@ -413,8 +413,11 @@ public:
         }
         else
         {
-            if (index == 2 || index == 5 || index == 10)
-                repaint(juce::Rectangle<int>(15, 52, 169, 34));
+            // Invalidate ONLY the GR readouts, not the entire 1672-pixel rack.
+            if (index == 2 || index == 5)
+                repaint(juce::Rectangle<int>(119, 43, 164, 37));
+            else if (index == 10)
+                repaint(juce::Rectangle<int>(120, 48, 142, 22));
             // Animation remains GUI-only: no animation calculations on the audio thread.
             if (isActive && (index == 5 || index == 6))
                 repaint(juce::Rectangle<int>(154, 13, 55, 42));
@@ -435,6 +438,12 @@ public:
         g.setColour(isActive ? accent : juce::Colour(0xff9c8c81));
         g.setFont(juce::Font(juce::FontOptions(9.2f)));
         g.drawText(isActive?"ACTIVE":"BYPASSED",20,51,110,14,juce::Justification::centredLeft);
+        if(index==1) {
+            // Precision power symbol, built in code on top of the approved plate.
+            g.setColour(juce::Colour(0xffffc474).withAlpha(.93f));
+            g.drawEllipse(243.f,20.f,32.f,32.f,1.9f);
+            g.drawLine(259.f,15.f,259.f,38.f,2.5f);
+        }
         if(index==7) {
             // Original approved MID/SIDE button artwork with live bypass state.
             const auto mid=processor.state.getRawParameterValue("bax_mid_in");
@@ -483,13 +492,63 @@ public:
             for(int i=0;i<count;++i)
                 g.drawLine(float(marks[i]),9.f,float(marks[i]),float(getHeight()-9),.8f);
         }
-        if(index==2||index==5||index==10){
-            const float a = index==2 ? processor.oceanReductionDb.load(std::memory_order_relaxed)
-                          : index==5 ? processor.shadowOpticalReductionDb.load(std::memory_order_relaxed)
-                                     : processor.limiterReductionDb.load(std::memory_order_relaxed);
+        if(index==2 || index==5) {
+            // Two independent, genuinely metered DSP gain-reduction readouts.
+            // All calculations happen on the JUCE GUI thread at the timer rate.
+            const bool dynamics=index==2;
+            const auto* aOn=processor.state.getRawParameterValue(
+                dynamics ? "ocean_in" : "shadow_optical_in");
+            const auto* bOn=processor.state.getRawParameterValue(
+                dynamics ? "furnace_in" : "shadow_discrete_in");
+            const auto* shadowOn=dynamics ? nullptr
+                : processor.state.getRawParameterValue("shadow_in");
+            const bool parent=!shadowOn || shadowOn->load(std::memory_order_relaxed)>.5f;
+            const bool firstEnabled=parent && aOn
+                && aOn->load(std::memory_order_relaxed)>.5f;
+            const bool secondEnabled=parent && bOn
+                && bOn->load(std::memory_order_relaxed)>.5f;
+            const float firstRaw=dynamics
+                ? processor.oceanReductionDb.load(std::memory_order_relaxed)
+                : processor.shadowOpticalReductionDb.load(std::memory_order_relaxed);
+            const float secondRaw=dynamics
+                ? processor.furnaceReductionDb.load(std::memory_order_relaxed)
+                : processor.shadowDiscreteReductionDb.load(std::memory_order_relaxed);
+            const auto dbValue=[](float r,bool enabled)->float {
+                return enabled && std::isfinite(r)
+                    ? juce::jlimit(0.f,36.f,std::abs(r)) : 0.f;
+            };
+            const float first=dbValue(firstRaw,firstEnabled);
+            const float second=dbValue(secondRaw,secondEnabled);
+            const auto firstColour=dynamics ? juce::Colour(0xff53d9f6)
+                                               : juce::Colour(0xffff95ab);
+            const auto secondColour=dynamics ? juce::Colour(0xffffc176)
+                                                : juce::Colour(0xfff4a0d7);
+            g.setColour(juce::Colour(0xff08131b).withAlpha(.90f));
+            g.fillRoundedRectangle(juce::Rectangle<float>(120.f,43.f,160.f,35.f),4.f);
+            const auto drawRow=[&](const juce::String& name,float db,int y,
+                                   juce::Colour light) {
+                g.setFont(juce::Font(juce::FontOptions(8.6f)));
+                g.setColour(juce::Colour(0xffd5d7df));
+                g.drawFittedText(name,123,y,43,12,juce::Justification::centredLeft,1);
+                const int lit=juce::jlimit(0,10,int(std::round(db*10.f/18.f)));
+                for(int seg=0;seg<10;++seg) {
+                    g.setColour(seg<lit ? light : light.withAlpha(.16f));
+                    g.fillRoundedRectangle(juce::Rectangle<float>(
+                        168.f+float(seg)*5.1f,float(y)+4.f,3.9f,5.f),.8f);
+                }
+                g.setFont(juce::Font(juce::FontOptions(9.f)));
+                g.setColour(light);
+                g.drawFittedText(juce::String(db,1)+"dB",221,y,55,12,
+                                 juce::Justification::centredRight,1);
+            };
+            drawRow(dynamics ? "OCEAN" : "OPT",first,46,firstColour);
+            drawRow(dynamics ? "FURNACE" : "DISC",second,62,secondColour);
+        } else if(index==10) {
+            const float raw=processor.limiterReductionDb.load(std::memory_order_relaxed);
+            const float db=std::isfinite(raw) ? juce::jlimit(0.f,36.f,std::abs(raw)) : 0.f;
             g.setColour(accent);
             g.setFont(juce::Font(juce::FontOptions(9.f)));
-            g.drawText("GR "+juce::String(std::abs(a),1)+" dB",124,51,124,15,
+            g.drawText("GR "+juce::String(db,1)+" dB",124,51,124,15,
                        juce::Justification::centredRight);
         }
     }
@@ -682,16 +741,17 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     const float actualTPDb = juce::Decibels::gainToDecibels(juce::jmax(0.000001f, actualTP));
     const bool warning = limiterOn && actualTPDb > ceiling + 0.05f;
     const bool tpEnabled=processor.state.getRawParameterValue("limiter_true_peak")
-        ->load(std::memory_order_relaxed)>0.5f;
-    const auto tpLamp=tpEnabled
-       ? juce::ImageCache::getFromMemory(BinaryData::tp_on_png,BinaryData::tp_on_pngSize)
-       : juce::ImageCache::getFromMemory(BinaryData::tp_off_png,BinaryData::tp_off_pngSize);
-    if(tpLamp.isValid())
-        g.drawImageWithin(tpLamp,995,21,44,24,juce::RectanglePlacement::stretchToFit,false);
+        ->load(std::memory_order_relaxed)>.5f;
+    const auto led=tpEnabled
+        ? juce::ImageCache::getFromMemory(BinaryData::led_amber_png,BinaryData::led_amber_pngSize)
+        : juce::ImageCache::getFromMemory(BinaryData::led_off_png,BinaryData::led_off_pngSize);
     g.setColour(warning ? juce::Colour(0xfff28a75) : secondaryText);
-    g.setFont(juce::Font(juce::FontOptions(11.f)));
-    const auto label = limiterOn ? ("TP " + juce::String(actualTPDb, 1) + " dBTP") : juce::String("TP --");
-    g.drawText(label, 855, 20, 128, 24, juce::Justification::centredRight);
+    g.setFont(juce::Font(juce::FontOptions(10.f)));
+    g.drawText("TP",987,26,22,18,juce::Justification::centredLeft);
+    if(led.isValid())
+        g.drawImageWithin(led,1009,27,16,16,juce::RectanglePlacement::centred,false);
+    g.drawText(limiterOn ? juce::String(actualTPDb,1) : juce::String("--"),
+               1026,26,53,18,juce::Justification::centredLeft);
     for (int i = 0; i < 4; ++i)
     {
         const int pair = i / 2, channel = i % 2;
