@@ -184,7 +184,8 @@ int main(){
             editor->setSize(1100,780);
             auto* tp=p->state.getParameter("limiter_true_peak");
             tp->setValueNotifyingHost((attempt%2)==0?0.f:1.f);
-            juce::MessageManager::getInstance()->runDispatchLoopUntil(5);
+            // JUCE_MODAL_LOOPS_PERMITTED may be disabled on Windows CI;
+            // editor ownership and parameter-attachment teardown are still tested.
         }
     }
     juce::AudioBuffer<float> audio(2,512);
