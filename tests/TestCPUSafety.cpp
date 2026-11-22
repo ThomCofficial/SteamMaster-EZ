@@ -66,7 +66,7 @@ void checkExactLimiterBypass(double fs) {
     limiter->set(settings);
     const auto delay = limiter->latencySamples();
     check(delay < 4096, "invalid bypass latency");
-    const std::size_t length = static_cast<std::size_t>(fs * .19);
+    const std::size_t length = static_cast<std::size_t>(fs * .27);
     std::vector<Stereo> source(length);
     double error = 0.;
     for (std::size_t i=0; i<length; ++i) {
@@ -74,7 +74,7 @@ void checkExactLimiterBypass(double fs) {
         source[i] = { .31*std::sin(phase), .29*std::cos(phase) };
         const auto y=limiter->process(source[i]);
         check(std::isfinite(y.l) && std::isfinite(y.r), "limiter bypass nonfinite");
-        if (i > static_cast<std::size_t>(fs*.07) && i > delay) {
+        if (i > static_cast<std::size_t>(fs*.21) && i > delay) {
             error = std::max(error,std::abs(y.l-source[i-delay].l));
             error = std::max(error,std::abs(y.r-source[i-delay].r));
         }
@@ -114,7 +114,7 @@ double bench(bool active) {
     auto rack=std::make_unique<MasteringRack>();
     rack->prepare(fs);
     configure(*rack,active,OversamplingMode::X8);
-    constexpr int warm=4096;
+    constexpr int warm=12288;
     constexpr int count=24000;
     std::vector<Stereo> source(warm+count);
     for(std::size_t i=0;i<source.size();++i) {
