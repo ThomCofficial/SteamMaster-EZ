@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "FoundryArt.h"
+#include <BinaryData.h>
 #include <algorithm>
 #include <cmath>
 
@@ -31,36 +32,72 @@ public:
         setColour(juce::ScrollBar::thumbColourId, juce::Colour(0xff647686));
     }
 
-    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
-                          float pos, float startAngle, float endAngle, juce::Slider& knob) override
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h,
+                          float pos, float start, float end, juce::Slider&) override
     {
-        foundry::rotary(g,x,y,width,height,pos,startAngle,endAngle,
-                        knob.isMouseOverOrDragging(),
-                        knob.findColour(juce::Slider::rotarySliderFillColourId));
+        const auto img = juce::ImageCache::getFromMemory(
+            BinaryData::SteamMaster_EZ_knob_standard_256_png,
+            BinaryData::SteamMaster_EZ_knob_standard_256_pngSize);
+        if (!img.isValid()) return;
+        const float dia = juce::jmin(float(w), float(h)) * .92f;
+        if (dia < 4.f) return;
+        const auto tr = juce::AffineTransform::translation(
+            -img.getWidth()*.5f, -img.getHeight()*.5f)
+            .rotated(start + pos*(end-start) - juce::MathConstants<float>::pi)
+            .scaled(dia / float(img.getWidth()))
+            .translated(float(x) + w*.5f, float(y) + h*.5f);
+        g.drawImageTransformed(img, tr, false);
     }
 
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
-                          bool highlighted, bool down) override
+                          bool, bool) override
     {
-        foundry::toggle(g,button.getLocalBounds().toFloat().reduced(4.f,3.f),
-                        button.getToggleState(),highlighted,down,
-                        button.findColour(juce::ToggleButton::tickColourId));
+        const auto img = button.getToggleState()
+            ? juce::ImageCache::getFromMemory(BinaryData::toggle_small_on_png, BinaryData::toggle_small_on_pngSize)
+            : juce::ImageCache::getFromMemory(BinaryData::toggle_small_off_png, BinaryData::toggle_small_off_pngSize);
+        if (img.isValid()) g.drawImageWithin(img, 0, 0, button.getWidth(), button.getHeight(),
+                                              juce::RectanglePlacement::stretchToFit, false);
     }
 
-    void drawComboBox(juce::Graphics& g, int width, int height, bool pressed,
-                      int, int, int, int, juce::ComboBox& box) override
+    void drawComboBox(juce::Graphics& g, int width, int height, bool,
+                      int, int, int, int, juce::ComboBox&) override
     {
-        foundry::combo(g,juce::Rectangle<float>(.5f,.5f,float(width)-1.f,
-                                                float(height)-1.f),pressed,
-                        box.findColour(juce::ComboBox::arrowColourId));
+        const auto img = width > 98
+            ? juce::ImageCache::getFromMemory(BinaryData::dropdown_long_png, BinaryData::dropdown_long_pngSize)
+            : juce::ImageCache::getFromMemory(BinaryData::dropdown_short_png, BinaryData::dropdown_short_pngSize);
+        if (img.isValid()) g.drawImageWithin(img, 0, 0, width, height,
+                                              juce::RectanglePlacement::stretchToFit, false);
     }
 
     void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                              const juce::Colour&, bool hovered, bool pressed) override
+                              const juce::Colour&, bool, bool) override
     {
-        const auto base=button.findColour(juce::TextButton::buttonColourId);
-        foundry::pushButton(g,button.getLocalBounds().toFloat().reduced(1.f,2.f),
-                            base,hovered,pressed);
+        juce::Image img;
+        const auto label=button.getButtonText();
+        if (label=="A")
+            img=button.getToggleState()
+              ?juce::ImageCache::getFromMemory(BinaryData::A_ACTIVE_png,BinaryData::A_ACTIVE_pngSize)
+              :juce::ImageCache::getFromMemory(BinaryData::A_INACTIVE_png,BinaryData::A_INACTIVE_pngSize);
+        else if (label=="B")
+            img=button.getToggleState()
+              ?juce::ImageCache::getFromMemory(BinaryData::B_ACTIVE_png,BinaryData::B_ACTIVE_pngSize)
+              :juce::ImageCache::getFromMemory(BinaryData::B_INACTIVE_png,BinaryData::B_INACTIVE_pngSize);
+        else
+            img=label=="CONFIRM"
+              ?juce::ImageCache::getFromMemory(BinaryData::reset_active_png,BinaryData::reset_active_pngSize)
+              :juce::ImageCache::getFromMemory(BinaryData::reset_inactive_png,BinaryData::reset_inactive_pngSize);
+        if (img.isValid()) g.drawImageWithin(img,0,0,button.getWidth(),button.getHeight(),
+                                              juce::RectanglePlacement::stretchToFit,false);
+    }
+
+    void drawButtonText(juce::Graphics& g, juce::TextButton& b, bool, bool) override
+    {
+        // Labels on the approved PNG buttons are already present.
+        if (b.getButtonText()=="CONFIRM") {
+            g.setColour(juce::Colours::white);
+            g.setFont(juce::Font(juce::FontOptions(10.f)));
+            g.drawText("CONFIRM",b.getLocalBounds(),juce::Justification::centred);
+        }
     }
 
     void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
@@ -186,19 +223,25 @@ public:
         }
     }
 
-    void paint(juce::Graphics& g) override
-    {
-        foundry::cell(g,getLocalBounds().toFloat().reduced(1.5f));
-    }
+    void paint(juce::Graphics&) override {} // The locked faceplate owns every panel background.
 
     void resized() override
     {
-        const int w = getWidth();
-        const int h = getHeight();
-        title.setBounds(2, 2, w - 4, 13);
-        if (knob) knob->setBounds(2, 14, w - 4, h - 16);
-        if (combo) combo->setBounds(4, 31, w - 8, 29);
-        if (toggle) toggle->setBounds(4, 31, w - 8, 29);
+        const int w=getWidth(), h=getHeight();
+        if(h < 54) {
+            title.setBounds(1,0,w-2,12);
+            if (knob) {
+                knob->setTextBoxStyle(juce::Slider::TextBoxRight,false,42,15);
+                knob->setBounds(2,12,w-4,h-13);
+            }
+            if (combo) combo->setBounds(3,15,w-6,h-18);
+            if (toggle) toggle->setBounds(3,15,w-6,h-18);
+        } else {
+            title.setBounds(1,1,w-2,14);
+            if (knob) knob->setBounds(2,15,w-4,h-17);
+            if (combo) combo->setBounds(4,29,w-8,29);
+            if (toggle) toggle->setBounds(4,29,w-8,29);
+        }
     }
 
 private:
@@ -278,132 +321,57 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        const auto area=getLocalBounds().toFloat().reduced(1.f);
-        const float t=float(juce::Time::getMillisecondCounterHiRes()*.001);
-        foundry::moduleSurface(g,area,index,isActive,t);
-
-        // Neutral high-contrast typography: only the status and rail
-        // carry this module's signature accent colour.
+        // DO NOT paint a second panel: the original faceplate is underneath.
         const auto accent=foundry::moduleAccent(index);
-        g.setColour(foundry::ivory);
+        g.setColour(juce::Colour(0xfff1e8dd));
         g.setFont(juce::Font(juce::FontOptions(14.3f)));
-        g.drawFittedText(title,18,9,133,24,juce::Justification::centredLeft,1);
-        g.setColour(foundry::muted);
+        g.drawFittedText(title,20,8,228,25,juce::Justification::centredLeft,1);
+        g.setColour(juce::Colour(0xffb0a49b));
         g.setFont(juce::Font(juce::FontOptions(9.5f)));
-        g.drawFittedText(description.toUpperCase(),19,36,135,14,
+        g.drawFittedText(description.toUpperCase(),20,34,227,14,
                          juce::Justification::centredLeft,1);
-        g.setColour(isActive?accent:foundry::muted.withAlpha(.6f));
-        g.setFont(juce::Font(juce::FontOptions(9.3f)));
-        g.drawText(isActive?"ACTIVE":"BYPASSED",19,52,92,15,
-                   juce::Justification::centredLeft);
-
-        const auto printReduction = [&](const juce::String& label, float value)
-        {
-            const auto reduction = std::abs(value);
-            return label + juce::String(reduction, 1) + "dB";
-        };
-
-        juce::String reduction;
-        if (index == 2)
-            reduction = printReduction("O ", processor.oceanReductionDb.load(std::memory_order_relaxed))
-                      + "  " + printReduction("F ", processor.furnaceReductionDb.load(std::memory_order_relaxed));
-        else if (index == 5)
-            reduction = printReduction("O ", processor.shadowOpticalReductionDb.load(std::memory_order_relaxed))
-                      + "  " + printReduction("D ", processor.shadowDiscreteReductionDb.load(std::memory_order_relaxed));
-        else if (index == 10)
-            reduction = printReduction("GR ", processor.limiterReductionDb.load(std::memory_order_relaxed));
-        if (reduction.isNotEmpty())
-        {
-            g.setColour(accent);
-            g.drawFittedText(reduction, 94, 52, 91, 16,
-                             juce::Justification::centredRight, 1);
-            const auto drawGR = [&](float value, float x, float width) {
-                g.setColour(foundry::black);
-                g.fillRoundedRectangle(x,74.f,width,5.f,2.f);
-                const float amount=width*juce::jlimit(0.f,1.f,std::abs(value)/18.f);
-                if(amount>.05f){
-                    g.setColour(isActive?accent:foundry::bronze);
-                    g.fillRoundedRectangle(x,74.f,amount,5.f,1.6f);
-                }
-                g.setColour(foundry::muted.withAlpha(.42f));
-                g.drawRoundedRectangle(x,74.f,width,5.f,2.f,.7f);
-            };
-            if (index == 2) {
-                drawGR(processor.oceanReductionDb.load(std::memory_order_relaxed), 18.f, 77.f);
-                drawGR(processor.furnaceReductionDb.load(std::memory_order_relaxed), 103.f, 77.f);
-            } else if (index == 5) {
-                drawGR(processor.shadowOpticalReductionDb.load(std::memory_order_relaxed), 18.f, 77.f);
-                drawGR(processor.shadowDiscreteReductionDb.load(std::memory_order_relaxed), 103.f, 77.f);
-            } else if (index == 10) {
-                drawGR(processor.limiterReductionDb.load(std::memory_order_relaxed), 18.f, 162.f);
-            }
-        }
-
-        g.setColour(juce::Colour(0xff3b4c5b));
-        g.drawLine(float(controlLeft - 8), 7.f,
-                   float(controlLeft - 8), float(getHeight() - 7), 1.f);
-
-        if (index == 7 && groups.size() == 2) {
-            g.setColour(accent.withAlpha(0.9f));
+        g.setColour(isActive ? accent : juce::Colour(0xff9c8c81));
+        g.setFont(juce::Font(juce::FontOptions(9.2f)));
+        g.drawText(isActive?"ACTIVE":"BYPASSED",20,51,110,14,juce::Justification::centredLeft);
+        if(index==7){
+            g.setColour(juce::Colour(0xff91dfdb));
             g.setFont(juce::Font(juce::FontOptions(10.f)));
-            g.drawText("MID", controlLeft + 8, 2, 45, 13, juce::Justification::centredLeft);
-            g.drawText("SIDE", controlLeft + 615, 2, 45, 13, juce::Justification::centredLeft);
+            g.drawText("MID",278,6,46,30,juce::Justification::centred);
+            g.drawText("SIDE",278,46,46,30,juce::Justification::centred);
         }
-        // Parametric EQ: group all 4 controls for each of 4 bands on ONE row.
-        if (index == 3)
-        {
-            constexpr int bandStart = 3;
-            constexpr int firstX = controlLeft + 2;
-            constexpr int pitch = 64;
-            for (int band = 0; band < 4; ++band)
-            {
-                const float x = float(firstX + (bandStart + band * 4) * pitch - 3);
-                const auto bandArea = juce::Rectangle<float>(x, 6.f, float(pitch * 4 - 2), 85.f);
-                g.setColour(accent.withAlpha(band%2==0?.085f:.035f));
-                g.fillRoundedRectangle(bandArea, 6.f);
-                g.setColour(accent.withAlpha(band%2==0?.60f:.34f));
-                g.drawRoundedRectangle(bandArea, 6.f, 0.8f);
-            }
-        }
-        else if (groups.size() > 1)
-        {
-            const int count = int(controls.size());
-            const float slot = float(usableWidth) / float(count);
-            for (size_t i = 1; i < groups.size(); ++i)
-            {
-                const float x = float(controlLeft) + slot * float(groups[i].second);
-                g.setColour(foundry::muted.withAlpha(.26f));
-                g.drawLine(x - 2.f, 12.f, x - 2.f, float(getHeight() - 12), 1.f);
-            }
+        if(index==2||index==5||index==10){
+            const float a = index==2 ? processor.oceanReductionDb.load(std::memory_order_relaxed)
+                          : index==5 ? processor.shadowOpticalReductionDb.load(std::memory_order_relaxed)
+                                     : processor.limiterReductionDb.load(std::memory_order_relaxed);
+            g.setColour(accent);
+            g.setFont(juce::Font(juce::FontOptions(9.f)));
+            g.drawText("GR "+juce::String(std::abs(a),1)+" dB",124,51,124,15,
+                       juce::Justification::centredRight);
         }
     }
 
     void resized() override
     {
-        // Only the fixed virtual design determines control rectangles.
-        const int count = int(controls.size());
-        if (index == 3)
-        {
-            constexpr int firstX = controlLeft + 2;
-            constexpr int pitch = 64;
-            for (int i = 0; i < count; ++i)
-                controls[size_t(i)]->setBounds(firstX + i * pitch, 18, 60, 74);
+        if(index==7 && controls.size()==16){
+            for(int i=0;i<16;++i)
+                controls[size_t(i)]->setBounds(324+(i%8)*138,2+(i/8)*40,132,39);
+            return;
         }
-        else
-        {
-            const int slot = usableWidth / juce::jmax(1, count);
-            const int cellWidth = juce::jlimit(60, 106, slot - 7);
-            for (int i = 0; i < count; ++i)
-            {
-                const int x = controlLeft + slot * i + (slot - cellWidth) / 2;
-                controls[size_t(i)]->setBounds(x, 8, cellWidth, 75);
-            }
+        const int count=int(controls.size());
+        if(index==3){
+            for(int i=0;i<count;++i)
+                controls[size_t(i)]->setBounds(controlLeft+i*62,8,60,getHeight()-13);
+            return;
         }
+        const int slot=usableWidth/juce::jmax(1,count);
+        for(int i=0;i<count;++i)
+            controls[size_t(i)]->setBounds(controlLeft+slot*i+1,3,
+                  juce::jmax(40,slot-5),getHeight()-6);
     }
 
 private:
-    static constexpr int controlLeft = 208;
-    static constexpr int usableWidth = 1220;
+    static constexpr int controlLeft = 251;
+    static constexpr int usableWidth = 1176;
     SteamMasterProcessor& processor;
     juce::String title, description;
     int index = 0;
@@ -469,16 +437,14 @@ SteamMasterEditor::SteamMasterEditor(SteamMasterProcessor& p)
     addModule("Stereo Image", "WIDTH / MONO MAKER", {"Stereo"});
     addModule("Master Limiter", "FINAL OUTPUT", {"Limiter"});
 
-    int y = 0;
-    for (auto& module : modules)
-    {
-        const int height = module->requiredHeight();
-        module->setBounds(0, y, designWidth, height);
-        y += height + moduleGap;
-    }
-    rackHeight = y - moduleGap;
-    designHeight = headerHeight + rackHeight + footerHeight;
-    rackCanvas.setBounds(0, headerHeight, designWidth, rackHeight);
+    // Locked rack layout: permanent control coordinates in 1440x1013 space.
+    constexpr std::array<int,10> tops{82,183,275,368,456,545,632,711,795,875};
+    constexpr std::array<int,10> heights{98,90,89,82,86,83,78,81,80,91};
+    for(size_t i=0;i<modules.size() && i<tops.size();++i)
+        modules[i]->setBounds(0,tops[i],designWidth,heights[i]);
+    rackHeight=1013;
+    designHeight=1013;
+    rackCanvas.setBounds(0,0,designWidth,designHeight);
     // The rack and all its interactive child components get one shared transform.
     setResizable(true, true);
     setResizeLimits(900, 580, 1800, 1200);
@@ -509,7 +475,9 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     g.addTransform(juce::AffineTransform::scale(uiScale).translated(uiOffsetX,uiOffsetY));
 
     // Fully bespoke Foundry header; keep original coordinates/hit areas.
-    foundry::header(g,float(designWidth));
+    const auto faceplate=juce::ImageCache::getFromMemory(BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
+    if(faceplate.isValid())
+        g.drawImageWithin(faceplate,0,0,designWidth,designHeight,juce::RectanglePlacement::stretchToFit,false);
 
     const int x = designWidth - 485;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
@@ -620,15 +588,10 @@ void SteamMasterEditor::resized()
                                 .translated(uiOffsetX, uiOffsetY));
     const auto scaled = juce::AffineTransform::scale(uiScale)
                             .translated(uiOffsetX, uiOffsetY);
-    resetAll.setBounds(juce::Rectangle<float>(535.f, 18.f, 87.f, 31.f)
-                          .transformedBy(scaled).getSmallestIntegerContainer());
-    compareA.setBounds(juce::Rectangle<float>(635.f, 18.f, 54.f, 31.f)
-                           .transformedBy(scaled).getSmallestIntegerContainer());
-    compareB.setBounds(juce::Rectangle<float>(694.f, 18.f, 54.f, 31.f)
-                           .transformedBy(scaled).getSmallestIntegerContainer());
-    compareA.setColour(juce::TextButton::buttonColourId,
-                       currentComparison == 0 ? juce::Colour(0xff276f78) : juce::Colour(0xff323c47));
-    compareB.setColour(juce::TextButton::buttonColourId,
-                       currentComparison == 1 ? juce::Colour(0xff276f78) : juce::Colour(0xff323c47));
+    resetAll.setBounds(juce::Rectangle<float>(515.f,17.f,87.f,38.f).transformedBy(scaled).getSmallestIntegerContainer());
+    compareA.setBounds(juce::Rectangle<float>(608.f,17.f,77.f,38.f).transformedBy(scaled).getSmallestIntegerContainer());
+    compareB.setBounds(juce::Rectangle<float>(692.f,17.f,77.f,38.f).transformedBy(scaled).getSmallestIntegerContainer());
+    compareA.setToggleState(currentComparison==0,juce::dontSendNotification);
+    compareB.setToggleState(currentComparison==1,juce::dontSendNotification);
     repaint();
 }
