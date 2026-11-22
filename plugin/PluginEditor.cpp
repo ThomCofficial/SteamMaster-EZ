@@ -57,6 +57,25 @@ const juce::Image& assembledApprovedFaceplate()
     return image;
 }
 
+// Reel surfaces are taken from the APPROVED faceplate exactly once. Rotating
+// the flattened reel in round-space avoids sliding or duplicating the tape bed.
+const juce::Image& originalTapeReel(bool right)
+{
+    static const std::array<juce::Image,2> reels=[] {
+        const auto& plate=assembledApprovedFaceplate();
+        constexpr int cx[]{1393,1573};
+        constexpr int cy[]{740,740};
+        constexpr int halfW=58,halfH=40;
+        return std::array<juce::Image,2>{
+            plate.getClippedImage(juce::Rectangle<int>(
+                cx[0]-halfW,cy[0]-halfH,2*halfW,2*halfH)).createCopy(),
+            plate.getClippedImage(juce::Rectangle<int>(
+                cx[1]-halfW,cy[1]-halfH,2*halfW,2*halfH)).createCopy()
+        };
+    }();
+    return reels[right ? 1u : 0u];
+}
+
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -830,22 +849,35 @@ void SteamMasterEditor::paint(juce::Graphics& g)
         }
     }
 
-    // Keep the exact approved baked reels stationary until isolated transparent
-    // reel sprites are approved. A tiny moving rim glint indicates tape activity
-    // without the duplicate spokes and rotated tape-bed textures seen in tests.
+    // Fully animated TAPE REELS, using the original copper texture from the
+    // immutable approved faceplate. Only the interior spins; the metallic
+    // outer rim, tape path, screws and decorations remain stationary.
     if (auto* tape=processor.state.getRawParameterValue("tape_in");
         tape && tape->load(std::memory_order_relaxed)>.5f) {
-        juce::Graphics::ScopedSaveState clip(g);
-        g.reduceClipRegion(juce::Rectangle<int>(1322,696,306,79));
-        const auto highlight=[&](float cx,float phase) {
-            juce::Path rim;
-            rim.addCentredArc(cx,740.f,51.f,42.f,0.f,
-                               phase,phase+.36f,true);
-            g.setColour(juce::Colour(0xffffc17d).withAlpha(.64f));
-            g.strokePath(rim,juce::PathStrokeType(2.1f));
+        constexpr float ellipseHalfW=58.f,ellipseHalfH=40.f;
+        constexpr float innerHalfW=51.f,innerHalfH=34.f;
+        const auto spin=[&](int cx,int cy,bool right,float angle) {
+            juce::Graphics::ScopedSaveState save(g);
+            juce::Path inside;
+            inside.addEllipse(float(cx)-innerHalfW,float(cy)-innerHalfH,
+                              2.f*innerHalfW,2.f*innerHalfH);
+            g.reduceClipRegion(inside);
+            g.setColour(juce::Colour(0xff110d0a));
+            g.fillPath(inside);
+            const auto& texture=originalTapeReel(right);
+            if(!texture.isValid())return;
+            // Undo the perspective squash, rotate, then restore its elliptical
+            // projection. This does NOT rotate the baked-in tape bed.
+            const auto transform=juce::AffineTransform::translation(
+                    -ellipseHalfW,-ellipseHalfH)
+                .scaled(1.f,ellipseHalfW/ellipseHalfH)
+                .rotated(angle)
+                .scaled(1.f,ellipseHalfH/ellipseHalfW)
+                .translated(float(cx),float(cy));
+            g.drawImageTransformed(texture,transform,false);
         };
-        highlight(1390.f,reelPhase);
-        highlight(1575.f,-reelPhase);
+        spin(1393,740,false,reelPhase);
+        spin(1573,740,true,-reelPhase);
     }
 
     const int x = 1090;
@@ -927,7 +959,7 @@ void SteamMasterEditor::timerCallback()
         reelPhase+=.19f;
         if(reelPhase>juce::MathConstants<float>::twoPi)
             reelPhase-=juce::MathConstants<float>::twoPi;
-        const auto reelRegion=juce::Rectangle<float>(1320.f,695.f,309.f,81.f)
+        const auto reelRegion=juce::Rectangle<float>(1333.f,702.f,307.f,76.f)
             .transformedBy(juce::AffineTransform::scale(uiScale)
                              .translated(uiOffsetX,uiOffsetY));
         repaint(reelRegion.getSmallestIntegerContainer());
