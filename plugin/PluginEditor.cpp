@@ -57,6 +57,33 @@ const juce::Image& assembledApprovedFaceplate()
     return image;
 }
 
+const juce::Image& reelArtwork(bool right)
+{
+    static const std::array<juce::Image,2> reelImages=[] {
+        std::array<juce::Image,2> sprites;
+        const auto& face=assembledApprovedFaceplate();
+        constexpr int radius=37, y=729;
+        constexpr int centres[]{1378,1545};
+        for(int n=0;n<2;++n) {
+            sprites[size_t(n)]=face.getClippedImage(
+                juce::Rectangle<int>(centres[n]-radius,y-radius,
+                                     radius*2,radius*2)).createCopy();
+            juce::Image::BitmapData pixels(sprites[size_t(n)],
+                                             juce::Image::BitmapData::readWrite);
+            for(int py=0;py<radius*2;++py)
+                for(int px=0;px<radius*2;++px) {
+                    const float dx=float(px-radius)+.5f,dy=float(py-radius)+.5f;
+                    const float d=std::sqrt(dx*dx+dy*dy);
+                    const float fade=juce::jlimit(0.f,1.f,float(radius)-d);
+                    pixels.setPixelColour(px,py,
+                        pixels.getPixelColour(px,py).withMultipliedAlpha(fade));
+                }
+        }
+        return sprites;
+    }();
+    return reelImages[right?1u:0u];
+}
+
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -113,11 +140,7 @@ public:
         // The True Peak switch is an ordinary toggle in the limiter rack.
         // The separate amber TP indicator is display-only in the header.
         const bool alt=id=="shadow_optical_in" || id=="shadow_discrete_in";
-        const auto img=tp
-            ? (button.getToggleState()
-                ? juce::ImageCache::getFromMemory(BinaryData::tp_on_png,BinaryData::tp_on_pngSize)
-                : juce::ImageCache::getFromMemory(BinaryData::tp_off_png,BinaryData::tp_off_pngSize))
-            : large
+        const auto img=large
                 ? (button.getToggleState()
                     ? juce::ImageCache::getFromMemory(BinaryData::toggle_large_on_png,BinaryData::toggle_large_on_pngSize)
                     : juce::ImageCache::getFromMemory(BinaryData::toggle_large_off_png,BinaryData::toggle_large_off_pngSize))
@@ -444,10 +467,16 @@ public:
         g.setFont(juce::Font(juce::FontOptions(9.2f)));
         g.drawText(isActive?"ACTIVE":"BYPASSED",20,51,110,14,juce::Justification::centredLeft);
         if(index==1) {
-            // Precision power symbol, built in code on top of the approved plate.
-            g.setColour(juce::Colour(0xffffc474).withAlpha(.93f));
-            g.drawEllipse(243.f,20.f,32.f,32.f,1.9f);
-            g.drawLine(259.f,15.f,259.f,38.f,2.5f);
+            // Crisp original hardware power mark, with dark isolation from the
+            // wave graphics. The approved faceplate itself is untouched.
+            g.setColour(juce::Colour(0xff100d0a).withAlpha(.88f));
+            g.fillEllipse(240.f,16.f,39.f,39.f);
+            g.setColour(juce::Colour(0xffffc47a));
+            juce::Path powerArc;
+            powerArc.addCentredArc(259.5f,35.5f,15.4f,15.4f,0.f,
+                                  .65f,juce::MathConstants<float>::twoPi-.65f,true);
+            g.strokePath(powerArc,juce::PathStrokeType(2.3f));
+            g.drawLine(259.5f,15.f,259.5f,36.f,2.6f);
         }
         if(index==7) {
             // Original approved MID/SIDE button artwork with live bypass state.
@@ -735,6 +764,57 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     // Locked original artwork; one affine transform for faceplate and UI controls.
     // One inexpensive blit for the faceplate; dynamic controls are separate.
     g.drawImageAt(assembledApprovedFaceplate(),0,0,false);
+
+    // Stereo image goniometer: the fan is approved artwork; the actual moving
+    // trace uses lock-free post-DSP samples and is clipped to the instrument.
+    {
+        juce::Graphics::ScopedSaveState scopeState(g);
+        constexpr float cx=1464.f, baseY=843.f;
+        const juce::Rectangle<int> scopeBounds(1332,789,273,59);
+        g.reduceClipRegion(scopeBounds);
+        const auto count=juce::jmin<unsigned>(
+            processor.scopeCount.load(std::memory_order_acquire),
+            unsigned(SteamMasterProcessor::kScopePoints));
+        g.setColour(juce::Colour(0xffcf7af6).withAlpha(.48f));
+        bool hasPrevious=false;
+        juce::Point<float> prev;
+        for(unsigned i=0;i<count;++i) {
+            const float l=processor.scopeLeft[i].load(std::memory_order_relaxed);
+            const float r=processor.scopeRight[i].load(std::memory_order_relaxed);
+            if(!std::isfinite(l)||!std::isfinite(r)) {hasPrevious=false;continue;}
+            const float mid=juce::jlimit(-1.f,1.f,(l+r)*.5f);
+            const float side=juce::jlimit(-1.f,1.f,(l-r)*.5f);
+            const juce::Point<float> point(cx+side*111.f,baseY-mid*39.f);
+            if(hasPrevious && point.getDistanceFrom(prev)<30.f)
+                g.drawLine(juce::Line<float>(prev,point),1.25f);
+            prev=point;
+            hasPrevious=true;
+        }
+    }
+
+    // Only the existing, masked hardware reel artwork is rotated. No second
+    // synthesized reel is drawn over it and the source PNG remains immutable.
+    if (auto* tape=processor.state.getRawParameterValue("tape_in");
+        tape && tape->load(std::memory_order_relaxed)>.5f) {
+        const auto paintReel=[&](int x,int y,bool right,float angle) {
+            const auto& sprite=reelArtwork(right);
+            if(!sprite.isValid())return;
+            constexpr int radius=37;
+            g.setColour(juce::Colour(0xff180f0b));
+            g.fillEllipse(float(x-radius),float(y-radius),
+                          float(radius*2),float(radius*2));
+            const auto xf=juce::AffineTransform::translation(
+                -float(radius),-float(radius))
+                .rotated(angle).translated(float(x),float(y));
+            g.drawImageTransformed(sprite,xf,false);
+            g.setColour(juce::Colour(0xffcf9b62).withAlpha(.85f));
+            g.drawEllipse(float(x-radius),float(y-radius),
+                          float(radius*2),float(radius*2),1.8f);
+        };
+        paintReel(1378,729,false,reelPhase);
+        paintReel(1545,729,true,-reelPhase);
+    }
+
 
     const int x = 1090;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
