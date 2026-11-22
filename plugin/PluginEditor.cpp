@@ -13,6 +13,49 @@ const auto copper=foundry::gold;
 const auto aqua=foundry::teal;
 const auto secondaryText=foundry::muted;
 
+const juce::Image& assembledApprovedFaceplate()
+{
+    // One-time code-only composition. Do NOT allocate/reassemble raster assets
+    // during the 25 Hz meter update or when Cubase repaints the plugin window.
+    static const juce::Image image=[] {
+        juce::Image output(juce::Image::ARGB,1672,941,true);
+        juce::Graphics art(output);
+        const auto faceplate=juce::ImageCache::getFromMemory(BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
+        if(faceplate.isValid()) {
+        // Deterministic assembly of the original approved faceplate.
+        // Every module has its own source/destination rectangle, preserving
+        // artwork module alignment without stretching the entire rack vertically.
+        // JUCE 8 uses the integer source/destination drawImage overload.
+        const int sw=faceplate.getWidth(),sh=faceplate.getHeight();
+        const auto sx=[&](int x) { return int(std::round(double(sw)*double(x)/1440.)); };
+        const auto sy=[&](int y) { return int(std::round(double(sh)*double(y)/1013.)); };
+        art.drawImage(faceplate,0,0,1672,66,
+                    0,0,sw,sy(70),false);
+        constexpr int sourceTops[]{82,180,266,356,435,518,596,672,750,831};
+        constexpr int sourceHeights[]{88,76,80,74,73,68,69,68,72,77};
+        constexpr int destTops[]{73,166,256,353,441,527,606,707,792,871};
+        constexpr int destHeights[]{84,82,89,80,81,74,94,78,76,70};
+        constexpr int sourceX[]{0,270,1120,1440};
+        constexpr int destX[]{0,282,1347,1672};
+        for(int module=0;module<10;++module) {
+            const int srcY=sy(sourceTops[module]);
+            const int srcH=sy(sourceTops[module]+sourceHeights[module])-srcY;
+            for(int part=0;part<3;++part) {
+                const int left=sx(sourceX[part]);
+                const int srcW=sx(sourceX[part+1])-left;
+                art.drawImage(faceplate,destX[part],destTops[module],
+                            destX[part+1]-destX[part],destHeights[module],
+                            left,srcY,srcW,srcH,false);
+            }
+        }
+    }
+
+        return output;
+    }();
+    return image;
+}
+
+
 class EzLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
@@ -665,35 +708,8 @@ void SteamMasterEditor::paint(juce::Graphics& g)
     g.addTransform(juce::AffineTransform::scale(uiScale).translated(uiOffsetX,uiOffsetY));
 
     // Locked original artwork; one affine transform for faceplate and UI controls.
-    const auto faceplate=juce::ImageCache::getFromMemory(BinaryData::Faceplate_png,BinaryData::Faceplate_pngSize);
-    if(faceplate.isValid()) {
-        // Deterministic assembly of the original approved faceplate.
-        // Every module has its own source/destination rectangle, preserving
-        // artwork module alignment without stretching the entire rack vertically.
-        // JUCE 8 uses the integer source/destination drawImage overload.
-        const int sw=faceplate.getWidth(),sh=faceplate.getHeight();
-        const auto sx=[&](int x) { return int(std::round(double(sw)*double(x)/1440.)); };
-        const auto sy=[&](int y) { return int(std::round(double(sh)*double(y)/1013.)); };
-        g.drawImage(faceplate,0,0,designWidth,headerHeight,
-                    0,0,sw,sy(70),false);
-        constexpr int sourceTops[]{82,180,266,356,435,518,596,672,750,831};
-        constexpr int sourceHeights[]{88,76,80,74,73,68,69,68,72,77};
-        constexpr int destTops[]{73,166,256,353,441,527,606,707,792,871};
-        constexpr int destHeights[]{84,82,89,80,81,74,94,78,76,70};
-        constexpr int sourceX[]{0,270,1120,1440};
-        constexpr int destX[]{0,282,1347,1672};
-        for(int module=0;module<10;++module) {
-            const int srcY=sy(sourceTops[module]);
-            const int srcH=sy(sourceTops[module]+sourceHeights[module])-srcY;
-            for(int part=0;part<3;++part) {
-                const int left=sx(sourceX[part]);
-                const int srcW=sx(sourceX[part+1])-left;
-                g.drawImage(faceplate,destX[part],destTops[module],
-                            destX[part+1]-destX[part],destHeights[module],
-                            left,srcY,srcW,srcH,false);
-            }
-        }
-    }
+    // One inexpensive blit for the faceplate; dynamic controls are separate.
+    g.drawImageAt(assembledApprovedFaceplate(),0,0,false);
 
     const int x = designWidth - 505;
     g.setFont(juce::Font(juce::FontOptions(10.f)));
