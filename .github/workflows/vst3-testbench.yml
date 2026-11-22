@@ -23,7 +23,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SteamMaster-EZ-Foundry-Actual-UI-Preview
-          path: build-ez/**/SteamMaster-EZ-Foundry-Preview.png
+          path: |
+            build-ez/**/SteamMaster-EZ-Foundry-Preview.png
+            build-ez/**/SteamMaster-EZ-Active-Tape-Scope.png
           if-no-files-found: warn
       - name: Package SteamMaster EZ
         shell: pwsh
