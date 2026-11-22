@@ -379,16 +379,21 @@ public:
         g.setFont(juce::Font(juce::FontOptions(9.2f)));
         g.drawText(isActive?"ACTIVE":"BYPASSED",20,51,110,14,juce::Justification::centredLeft);
         if(index==7) {
-            // Restore the dual framed row markers rather than tiny plain text.
-            const auto cyan=juce::Colour(0xff79e9e1);
-            for (int row=0;row<2;++row) {
-                const juce::Rectangle<float> r(294.f,6.f+row*44.f,80.f,35.f);
-                g.setColour(juce::Colour(0xff0a1318));g.fillRoundedRectangle(r,4.f);
-                g.setColour(cyan.withAlpha(.75f));g.drawRoundedRectangle(r,4.f,1.2f);
-                g.setFont(juce::Font(juce::FontOptions(12.f)));
-                g.drawFittedText(row==0 ? "MID" : "SIDE",r.toNearestInt(),
-                                 juce::Justification::centred,1);
-            }
+            // Original approved MID/SIDE button artwork with live bypass state.
+            const auto mid=processor.state.getRawParameterValue("bax_mid_in");
+            const auto side=processor.state.getRawParameterValue("bax_side_in");
+            const bool midOn=mid && mid->load(std::memory_order_relaxed)>.5f;
+            const bool sideOn=side && side->load(std::memory_order_relaxed)>.5f;
+            const auto midImage=midOn
+                ? juce::ImageCache::getFromMemory(BinaryData::mid_active_png,BinaryData::mid_active_pngSize)
+                : juce::ImageCache::getFromMemory(BinaryData::mid_inactive_png,BinaryData::mid_inactive_pngSize);
+            const auto sideImage=sideOn
+                ? juce::ImageCache::getFromMemory(BinaryData::side_active_png,BinaryData::side_active_pngSize)
+                : juce::ImageCache::getFromMemory(BinaryData::side_inactive_png,BinaryData::side_inactive_pngSize);
+            if(midImage.isValid())
+                g.drawImageWithin(midImage,293,6,83,35,juce::RectanglePlacement::stretchToFit,false);
+            if(sideImage.isValid())
+                g.drawImageWithin(sideImage,293,50,83,35,juce::RectanglePlacement::stretchToFit,false);
         }
         if(index==1) {
             const auto gold=juce::Colour(0xffffbd55);

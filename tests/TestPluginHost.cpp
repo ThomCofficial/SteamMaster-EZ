@@ -133,9 +133,16 @@ int main(){
       // Produce the REAL JUCE-rendered screenshot from the Windows host test,
       // not a generated illustration or a PNG sent by the user.
       if(fs==48000.) {
-          editor->setSize(1580,1050);
+          // Exact approved reference aspect ratio; no misleading letterboxed PNG.
+          editor->setSize(1672,941);
           const auto snapshot=editor->createComponentSnapshot(editor->getLocalBounds(),true,1.0f);
-          if(snapshot.isNull())throw std::runtime_error("Foundry screenshot empty");
+          if(snapshot.isNull())throw std::runtime_error("Approved artwork screenshot empty");
+          if(snapshot.getWidth()!=1672 || snapshot.getHeight()!=941)
+              throw std::runtime_error("Artwork preview is not at reference aspect ratio");
+          const auto edge=snapshot.getPixelAt(20,180);
+          const auto face=snapshot.getPixelAt(280,180);
+          if(edge==face)
+              throw std::runtime_error("Artwork faceplate and rack panels not distinguishable");
           const auto target=juce::File::getCurrentWorkingDirectory()
                             .getChildFile("SteamMaster-EZ-Foundry-Preview.png");
           juce::FileOutputStream stream(target);
